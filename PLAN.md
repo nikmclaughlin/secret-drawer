@@ -35,6 +35,15 @@ definition of done. If anything in this file is ambiguous, fix the plan
 in the same commit as the code — the plan is the source of truth and
 should never drift.
 
+**Human checkpoints & testing boundaries.** The agent writes and lints
+code and may run its own static checks (php -l, node --check) — but the
+dev site is the human's territory: no activating/deactivating plugins,
+no WP-CLI writes, no touching the local dev site without being asked.
+Each milestone's ⏸ CP marker means: agent hands the human a short
+test checklist, the human clicks around, taste/feel issues get noted,
+then the next milestone starts. Checkpoints are where taste decisions
+get made; the agent proposes, the human disposes.
+
 ---
 
 ## 1. Concept
@@ -414,6 +423,19 @@ touching its internals.
 
 ## 11. Milestones
 
+### Checkpoints (human testing pauses)
+
+| CP | After | What the human verifies | What "pass" looks like |
+|----|-------|------------------------|------------------------|
+| CP1 | M1 | Type `hellodolly` on several admin screens (Posts list, plugin editor, a custom post type, Network admin if present). Drawer slides from right; ESC closes; ✕ closes; reopening restores last tab. Tab typing into a post does *not* trigger. First-unlock toast + 🤫 confetti, once only. Settings gear present but disabled. | Feels good, no layout breakage anywhere. |
+| CP2 | M2 | In a second browser profile logged in as a non-admin: typing `hellodolly` does nothing, no drawer markup, no plugin JS in page source. As admin: gear opens settings; changes persist across page loads; cubby removed via settings disappears from the tab strip. | Gate holds; settings survive reload. |
+| CP3 | M3 | Notes autosave + survive reload/other browser; links add/reorder/delete + open correctly; notifications counts match the real admin screens; removing & re-adding a cubby preserves its data. | Data is trustworthy; counts are truthful. |
+| CP4 | M5 | Fresh-install smoke on a clean WP + 2025 theme; RTL flip; small window; keyboard-only run through open → tabs → close. | Ship it. |
+
+⏸ markers in the milestone list below refer to these rows.
+
+---
+
 ### M0 — Scaffold
 Plugin header (name, slug `secret-drawer`, text domain), constants,
 bootstrap skeleton, `uninstall.php`, `.gitignore`, README stub.
@@ -426,6 +448,8 @@ handling; `localStorage` state; first-unlock toast + 🤫 confetti.
 **AC:** works on every admin page (plugins, editor, custom post types);
 no layout shift; no dependencies.
 
+⏸ **Checkpoint CP1 (after M1) — pause for human testing.** See *Checkpoints* below.
+
 ### M2 — Access control + settings
 Role gate (server-enforced), **in-drawer settings view** (accessed only via
 the drawer's gear icon: roles multi-select, trigger word field, cubby
@@ -435,12 +459,16 @@ right/bottom), REST `/settings`.
 sanitize correctly; a cubby removed from the drawer vanishes on the next
 page load; no admin-menu page exists at all.
 
+⏸ **Checkpoint CP2 (after M2) — pause for human testing.**
+
 ### M3 — Built-in cubbies
 Notes (autosave), Quick Links (CRUD), Notifications (counts + deep links +
 transient cache + tab badge).
 **AC:** data survives cache clears and logins on another device; counts
 match the real screens; removing and re-adding a cubby from the library
 preserves its data.
+
+⏸ **Checkpoint CP3 (after M3) — pause for human testing. The taste gate.**
 
 ### M4 — Cubby API + docs
 Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,
@@ -455,6 +483,8 @@ reduced-motion, `readme.txt`, screenshots, version `1.0.0` tag.
 on a clean WP + 2025 theme.
 
 ---
+
+⏸ **Checkpoint CP4 (after M5) — pre-release human pass.**
 
 ## 12. Fun backlog (the silly part, preserved for later)
 
