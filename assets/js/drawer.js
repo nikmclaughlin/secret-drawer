@@ -503,6 +503,7 @@
 					return;
 				}
 				// Pre-fill the form and enter edit mode.
+				setLinksFormVisible( mount, true );
 				setMode( 'edit', parseInt( editIndex, 10 ) );
 				labelInput().value = rowLabel( editRow );
 				urlInputEl().value = rowUrl( editRow );
