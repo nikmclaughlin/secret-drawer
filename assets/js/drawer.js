@@ -387,12 +387,18 @@
 					lsSet( 'lastCubby', name );
 				},
 				children: function ( tab ) {
-					var mount = h( 'div', { className: 'sd-cubby-body', 'data-cubby': tab.name } );
-					// Populate after mount.
-					window.setTimeout( function () {
-						fetchCubby( tab.name, mount );
-					}, 0 );
-					return mount;
+					// h() returns a plain element object, not a DOM node —
+					// populate via ref, which receives the real node after mount.
+					return h( 'div', {
+						className: 'sd-cubby-body',
+						'data-cubby': tab.name,
+						ref: function ( node ) {
+							if ( node && ! node.dataset.sdLoaded ) {
+								node.dataset.sdLoaded = '1';
+								fetchCubby( tab.name, node );
+							}
+						}
+					} );
 				}
 			} );
 		} else {
