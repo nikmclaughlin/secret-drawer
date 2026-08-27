@@ -173,6 +173,7 @@
 		} ).then( function ( data ) {
 			mount.innerHTML = data && data.html ? String( data.html ) : '';
 			wireCubby( id, mount, panelEl );
+			restackPanels(); // Content changed the panel's height; re-stack the column.
 		} ).catch( function () {
 			// Routes for a cubby may not exist yet (M3); show a quiet placeholder.
 			mount.innerHTML = '';
@@ -219,6 +220,23 @@
 	 * never bleed into each other.
 	 */
 	var NOTE_DEBOUNCE = 1200;
+
+	/** Build a note list row matching the server-rendered markup. */
+	function sdNoteRowHTML( id, content ) {
+		var safeId = String( id ).replace( /"/g, '&quot;' );
+		var text = String( content || '' ).replace( /\s+/g, ' ' ).trim();
+		var preview = text ? ( text.length > 60 ? text.slice( 0, 60 ) + '…' : text ) : '(empty note)';
+		return (
+			'<li class="sd-row sd-note-row" data-note-id="' + safeId + '">' +
+			'<button type="button" class="sd-note-open" data-sd-note-open="' + safeId + '" data-content="' +
+			String( content || '' ).replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( /"/g, '&quot;' ) +
+			'">' + preview + '</button>' +
+			'<span class="sd-row-actions">' +
+			'<button type="button" class="sd-icon-button" data-sd-note-delete="' + safeId + '" aria-label="Delete note">✕</button>' +
+			'</span>' +
+			'</li>'
+		);
+	}
 
 	/** Keep the list row in sync with edited content (stored copy + preview). */
 	function syncNoteRow( listMount, id, content ) {
@@ -358,7 +376,29 @@
 					}
 					return res.json();
 				} ).then( function ( data ) {
-					openEditorPanel( { id: data.id, content: '' }, listPanel, mount, true );
+					if ( data && data.id && data.content !== undefined ) {
+						// Server echoes the new note; trust its content field.
+						openEditorPanel( data, listPanel, mount, true );
+					} else {
+						openEditorPanel( { id: data.id, content: '' }, listPanel, mount, true );
+					}
+					// The list needs a row for the new note. If the empty-state
+					// paragraph is present, replace it with the list first.
+					var list = mount.querySelector( '.sd-notes-list' );
+					var empty = mount.querySelector( '.sd-notes-wrap > .sd-muted' );
+					if ( empty && ! list ) {
+						var wrap = mount.querySelector( '.sd-notes-wrap' );
+						if ( wrap ) {
+							wrap.insertAdjacentHTML( 'beforeend', '<ul class="sd-notes-list"></ul>' );
+							list = mount.querySelector( '.sd-notes-list' );
+						}
+						empty.remove();
+					}
+					if ( list ) {
+						list.insertAdjacentHTML( 'afterbegin', sdNoteRowHTML( data.id, '' ) );
+						syncNoteRow( mount, data.id, '' );
+						restackPanels();
+					}
 				} ).catch( function () {} );
 				return;
 			}
@@ -682,6 +722,7 @@
 	/** Horizontal gap between stacked panels; grows the cascade outward. */
 	var PANEL_STEP = 340; // Panel width (320) + 20 breathing room.
 	var PANEL_WIDTH = 320;
+	var PANEL_GAP_Y = 20; // Vertical gap between stacked cubby panels.
 
 	function panelLayer() {
 		return document.getElementById( 'secret-drawer-panels' );
@@ -703,9 +744,9 @@
 			: { left: window.innerWidth, right: window.innerWidth, top: 0, height: window.innerHeight };
 	}
 
-	/** Panels are 1/4 the launcher's height (the joke needs room, not a monolith). */
-	function panelHeightFor( rect ) {
-		return Math.max( 180, Math.round( rect.height / 4 ) );
+	/** Panels grow with their content, capped so they never leave the viewport. */
+	function maxHeightFor( rect ) {
+		return Math.max( 240, window.innerHeight - rect.top - 12 );
 	}
 
 	/** Where a panel chained to a parent rect should sit (viewport left). */
@@ -727,21 +768,42 @@
 		if ( ! layer ) {
 			return;
 		}
-		var parentRect = parent ? parent.getBoundingClientRect() : launcherRect();
+		// One instance per cubby: clicking its card again closes it.
+		// (Editors are excluded — they key on noteId, not cubbyId — and
+		// popPanel cascade-closes any panels opened from this one.)
+		var existing = state.panels.filter( function ( p ) {
+			return ! p.editor && p.cubbyId === cubbyId;
+		} )[ 0 ];
+		if ( existing ) {
+			popPanel( existing.el );
+			return;
+		}
+		var bottom = isBottomMode();
 		var el = document.createElement( 'aside' );
-		el.className = 'sd-panel';
+		el.className = 'sd-panel' + ( bottom ? ' sd-panel--bottom' : '' );
 		el.setAttribute( 'role', 'complementary' );
 		el.setAttribute( 'aria-label', cubbyTitle( cubbyId ) );
-		el.style.left = panelLeftFor( parentRect ) + 'px';
-		el.style.top = parentRect.top + 'px';
-		el.style.height = panelHeightFor( parentRect ) + 'px';
+		if ( bottom ) {
+			// Bottom sheet: seed the panel resting on the sheet's top edge so
+			// it's measurable before the first restack places the row.
+			var drawer = document.querySelector( '.sd-drawer' );
+			var drawerTop = drawer ? drawer.getBoundingClientRect().top : window.innerHeight - 280;
+			el.style.left = '8px';
+			el.style.top = ( drawerTop - 148 ) + 'px';
+			el.style.maxHeight = Math.max( 240, drawerTop - 12 ) + 'px';
+		} else {
+			var parentRect = parent ? parent.getBoundingClientRect() : launcherRect();
+			el.style.left = panelLeftFor( parentRect ) + 'px';
+			el.style.top = parentRect.top + 'px';
+			el.style.maxHeight = maxHeightFor( parentRect ) + 'px';
+		}
 		el.innerHTML =
 			'<header class="sd-header"><h2 class="sd-title"></h2>' +
 			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
 			'<div class="sd-body"></div>';
 		layer.appendChild( el );
 		el.querySelector( '.sd-title' ).textContent = cubbyTitle( cubbyId );
-		state.panels.push( { el: el, parent: parent, cubbyId: cubbyId } );
+		state.panels.push( { el: el, parent: parent, cubbyId: cubbyId, ro: watchPanel( el ) } );
 		restackPanels();
 		fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
 		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
@@ -749,18 +811,74 @@
 		} );
 	}
 
-	/** Close the topmost panel (or a specific one, cascade-closing children). */
-	function popPanel( target ) {
-		var idx = target ? state.panels.findIndex( function ( p ) { return p.el === target; } ) : state.panels.length - 1;
-		if ( idx === -1 ) {
+	/** The record for `target` plus every panel chained beneath it. */
+	function panelWithDescendants( target ) {
+		var record = state.panels.filter( function ( p ) { return p.el === target; } )[ 0 ];
+		if ( ! record ) {
+			return [];
+		}
+		var doomed = [ record ];
+		var grew = true;
+		while ( grew ) {
+			grew = false;
+			state.panels.forEach( function ( p ) {
+				if (
+					doomed.indexOf( p ) === -1 &&
+					p.parent &&
+					doomed.some( function ( d ) { return d.el === p.parent; } )
+				) {
+					doomed.push( p );
+					grew = true;
+				}
+			} );
+		}
+		return doomed;
+	}
+
+	/** Slide a panel element back out (left → right), then remove it. */
+	function removePanelEl( el ) {
+		var reduceMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+		if ( reduceMotion ) {
+			el.remove();
 			return;
 		}
-		// Close everything above it too (children of the panel going away).
-		while ( state.panels.length > idx ) {
-			var panel = state.panels.pop();
-			flushPanelNotes( panel );
-			panel.el.remove();
+		var gone = false;
+		function finish() {
+			if ( gone ) {
+				return;
+			}
+			gone = true;
+			el.remove();
 		}
+		el.addEventListener( 'animationend', function ( event ) {
+			if ( String( event.animationName ).indexOf( 'sd-panel-out' ) === 0 ) {
+				finish();
+			}
+		} );
+		window.setTimeout( finish, 260 ); // Fallback if animationend never fires.
+		el.classList.add( 'is-closing' );
+	}
+
+	/**
+	 * Close a panel — only that panel plus its chained children (editors).
+	 * Siblings in the launcher's column survive and slide up to fill the
+	 * gap. Without a target (ESC), the most recently opened panel goes.
+	 */
+	function popPanel( target ) {
+		var doomed = target ? panelWithDescendants( target ) : state.panels.slice( -1 );
+		if ( ! doomed.length ) {
+			return;
+		}
+		doomed.forEach( function ( panel ) {
+			flushPanelNotes( panel );
+			if ( panel.ro ) {
+				panel.ro.disconnect();
+			}
+			removePanelEl( panel.el );
+		} );
+		state.panels = state.panels.filter( function ( p ) {
+			return doomed.indexOf( p ) === -1;
+		} );
 		restackPanels();
 	}
 
@@ -769,7 +887,10 @@
 		while ( state.panels.length ) {
 			var panel = state.panels.pop();
 			flushPanelNotes( panel );
-			panel.el.remove();
+			if ( panel.ro ) {
+				panel.ro.disconnect();
+			}
+			removePanelEl( panel.el );
 		}
 	}
 
@@ -780,16 +901,97 @@
 		}
 	}
 
-	/** Re-anchor the stack: each panel sits outboard of its parent. */
-	function restackPanels() {
-		var rect = launcherRect();
+	/** Restack whenever any panel's height changes (content loads, resizes). */
+	function watchPanel( el ) {
+		if ( ! ( 'ResizeObserver' in window ) ) {
+			return null;
+		}
+		var ro = new ResizeObserver( function () {
+			restackPanels();
+		} );
+		ro.observe( el );
+		return ro;
+	}
+
+	/** Bottom-sheet mode? Panels should pop up from the bottom edge. */
+	function isBottomMode() {
+		var drawer = document.querySelector( '.sd-drawer' );
+		if ( drawer ) {
+			return drawer.classList.contains( 'sd-drawer--bottom' );
+		}
+		return 'bottom' === config.position;
+	}
+
+	/**
+	 * Bottom-sheet layout: panels rise from the viewport's bottom edge in a
+	 * horizontal row (wrapping upward when the row runs out of width), so
+	 * they emerge from the sheet instead of covering its top edge.
+	 */
+	function restackPanelsBottom() {
+		var margin = 8;
+		var gap = 12;
+		var drawer = document.querySelector( '.sd-drawer' );
+		var drawerTop = drawer ? drawer.getBoundingClientRect().top : window.innerHeight - 280;
+		var cap = Math.max( 240, drawerTop - 12 ); // Never climb above the sheet's top edge.
+		// First row's bottoms rest on the sheet's top edge; later rows stack
+		// upward from there, so panels never cover the sheet itself.
+		var rowBottom = drawerTop;
+		var rowHeight = 0;
+		var x = margin;
 		state.panels.forEach( function ( panel ) {
-			var left = panelLeftFor( rect );
-			panel.el.style.left = left + 'px';
-			panel.el.style.top = rect.top + 'px';
-			panel.el.style.height = panelHeightFor( rect ) + 'px';
-			// Track positions arithmetically — mid-animation rects lie.
-			rect = { left: left, right: left + PANEL_WIDTH, top: rect.top, height: rect.height };
+			if ( x + PANEL_WIDTH > window.innerWidth - margin && x > margin ) {
+				// No room left in this row: wrap to a new row above it.
+				x = margin;
+				rowBottom -= rowHeight + gap;
+				rowHeight = 0;
+			}
+			var h = panel.el.offsetHeight;
+			var top = rowBottom - h;
+			panel.el.style.left = x + 'px';
+			panel.el.style.top = top + 'px';
+			panel.el.style.maxHeight = cap + 'px';
+			panel.rect = { left: x, right: x + PANEL_WIDTH, top: top };
+			rowHeight = Math.max( rowHeight, h );
+			x += PANEL_WIDTH + gap;
+		} );
+	}
+
+	/**
+	 * Re-anchor the stack. Launcher-attached cubby panels all open from the
+	 * launcher's outboard edge and stack downward (new ones below the last);
+	 * chained panels (note editors) cascade outboard of their parent.
+	 * Positions are tracked arithmetically — mid-animation rects lie.
+	 */
+	function restackPanels() {
+		if ( isBottomMode() ) {
+			restackPanelsBottom();
+			return;
+		}
+		var launcher = launcherRect();
+		var stackTop = launcher.top;
+		state.panels.forEach( function ( panel ) {
+			var rect;
+			if ( ! panel.parent ) {
+				// Attached to the launcher: share its x, stack downward.
+				var left = panelLeftFor( launcher );
+				rect = { left: left, right: left + PANEL_WIDTH, top: stackTop };
+				panel.el.style.left = left + 'px';
+				panel.el.style.top = stackTop + 'px';
+				panel.el.style.maxHeight = maxHeightFor( rect ) + 'px';
+				// Next cubby starts below this one; never parked fully off-screen.
+				stackTop += panel.el.offsetHeight + PANEL_GAP_Y;
+				stackTop = Math.min( stackTop, window.innerHeight - 240 );
+			} else {
+				// Chained (note editor): outboard of its parent's computed rect.
+				var parent = state.panels.filter( function ( p ) { return p.el === panel.parent; } )[ 0 ];
+				var pRect = parent && parent.rect ? parent.rect : panel.parent.getBoundingClientRect();
+				var chainedLeft = panelLeftFor( pRect );
+				rect = { left: chainedLeft, right: chainedLeft + PANEL_WIDTH, top: pRect.top };
+				panel.el.style.left = chainedLeft + 'px';
+				panel.el.style.top = pRect.top + 'px';
+				panel.el.style.maxHeight = maxHeightFor( rect ) + 'px';
+			}
+			panel.rect = rect;
 		} );
 	}
 
@@ -807,7 +1009,8 @@
 		var className = 'sd-drawer sd-drawer--' + position + ( state.open ? ' is-open' : '' );
 
 		// Launcher body: a grid of cubby cards. Clicking pops the cubby
-		// out as its own sidebar; the launcher itself stays put.
+		// out as its own sidebar; clicking an open cubby's card closes it.
+		// The launcher itself stays put.
 		var cards = ( config.cubbies || [] ).map( function ( cubby ) {
 			return h( 'button', {
 				key: cubby.id,
@@ -832,7 +1035,11 @@
 			'aria-label': config.strings.title,
 			'aria-hidden': state.open ? 'false' : 'true',
 			inert: state.open ? undefined : '',
-			style: { width: position === 'bottom' ? undefined : config.width + 'px' }
+			// Bottom sheet: the "width" setting drives the sheet's height.
+			// Clamp so extreme values can't swallow (or vanish below) the screen.
+			style: position === 'bottom'
+				? { height: Math.min( Math.max( parseInt( config.width, 10 ) || 560, 160 ), window.innerHeight - 60 ) + 'px' }
+				: { width: config.width + 'px' }
 		},
 			h( 'header', { className: 'sd-header' },
 				h( 'h2', { className: 'sd-title' }, config.strings.title ),
@@ -887,6 +1094,8 @@
 			root = createRoot( container );
 		}
 		root.render( h( Drawer ) );
+		// Position changes (right ↔ bottom) re-anchor the panel layout mode.
+		restackPanels();
 	}
 
 	/** Dark pill, bottom center — reused for "Saved ✓". */
@@ -994,7 +1203,9 @@
 			role: 'complementary',
 			'aria-label': S.settings,
 			'aria-hidden': 'false',
-			style: { width: position === 'bottom' ? undefined : ( parseInt( draft.width, 10 ) || config.width ) + 'px' }
+			style: position === 'bottom'
+				? { height: Math.min( Math.max( parseInt( draft.width, 10 ) || config.width, 160 ), window.innerHeight - 60 ) + 'px' }
+				: { width: ( parseInt( draft.width, 10 ) || config.width ) + 'px' }
 		},
 			h( 'header', { className: 'sd-header' },
 				h( 'button', {
@@ -1067,7 +1278,7 @@
 					),
 					TextControl ? h( TextControl, {
 						type: 'number',
-						label: S.width,
+						label: 'bottom' === ( draft.position || config.position ) ? ( S.height || 'Height (px)' ) : S.width,
 						value: draft.width,
 						onChange: function ( v ) { draft.width = v; render(); }
 					} ) : null
@@ -1127,8 +1338,15 @@
 		close: close,
 		toggle: toggle,
 		// Open the drawer (if needed) and pop the cubby out immediately.
+		// "Show" semantics: if the cubby is already open, leave it alone
+		// (only card clicks toggle a cubby closed).
 		showCubby: function ( id ) {
 			open();
+			if ( state.panels.some( function ( p ) {
+				return ! p.editor && p.cubbyId === id;
+			} ) ) {
+				return;
+			}
 			openPanel( id, null );
 		}
 	};

@@ -476,7 +476,7 @@ preserves its data.
 
 ⏸ **Checkpoint CP3 (after M3) — pause for human testing. The taste gate.**
 
-### M3.5 — Launcher cascade (drawers within drawers)
+### M3.5 — Launcher cascade (drawers within drawers) ✅
 The drawer stops being tabs and becomes the launcher: a grid of cubby cards
 (icon + title). Clicking a card pops the cubby out as its own sidebar,
 attached to the launcher's inline-end edge, offset so the stack reads as
@@ -489,7 +489,43 @@ time (✕ or ESC pops the top panel), closing the launcher closes everything.
 autosave still lands (per-panel pending state, no cross-panel bleed);
 ESC pops one level; closing the launcher flushes + closes all panels.
 
+**Layout refinements (implemented during CP3.5 human testing):**
+
+- **Content-fit sizing.** Panels size to their content (`min-height: 140px`),
+  capped to the viewport; bodies scroll only past the cap. No fixed ¼ height.
+- **One instance per cubby.** Clicking a card whose cubby is already open
+  closes it (toggle). `showCubby()` (public API) keeps "show" semantics —
+  it focuses the open panel instead of closing. Note editors remain keyed
+  per note id, one editor per note.
+- **Placement.** Right mode: launcher-attached cubbies stack vertically
+  below the launcher's edge, in a column; chained panels (note editors)
+  cascade outboard of their parent. Bottom mode: all panels (including
+  editors) rise in rows anchored to the sheet's *top edge*, wrapping
+  upward — they never cover the sheet (z-index bump + upward shadow).
+- **Motion.** Panels slide in/out horizontally in right mode (right → left
+  on open; left → right on close; mirrored in RTL) and rise/sink 24px in
+  bottom mode. Sibling panels animate their re-flow after a close
+  (`top`/`left` transitions). All of it collapses under
+  `prefers-reduced-motion`.
+- **Closing is scoped.** Closing a panel removes only it and its chained
+  descendants (parent-chain walk, not array order); surviving cubbies slide
+  up to refill the column/row. A `ResizeObserver` per panel re-stacks the
+  layout whenever content changes a panel's height.
+- **Bottom sheet sizing.** In bottom mode the "width" setting drives the
+  sheet's height (clamped 160px–viewport−60px), relabeled "Height (px)" in
+  settings; the setting key is unchanged so stored values survive.
+- **Notes list stays live.** Creating a note inserts its row into the list
+  immediately (client-rendered row markup matching the PHP), swaps the
+  empty-state paragraph for the list, and the panel re-stacks; row previews
+  update live from the editor's autosave.
+- **No horizontal overflow.** Note/link rows and labels truncate with
+  ellipsis (`min-width: 0` unlock through the flex/grid chain;
+  `overflow-x: hidden` backstop on `.sd-body`), so buttons are always
+  reachable without scrolling the panel sideways.
+
 ⏸ **Checkpoint CP3.5 (after M3.5) — pause for human testing. The joke gate.**
+Layout refinement pass (above) verified by Nik on 2026-08-27: cascade,
+toggle, bottom-mode anchoring, live note list, truncation all confirmed.
 
 ### M4 — Cubby API + docs
 Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,

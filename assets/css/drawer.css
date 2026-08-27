@@ -182,8 +182,11 @@
 	position: fixed;
 	top: 0;
 	bottom: auto;
-	height: 25vh; /* fallback; JS sets 1/4 of the launcher's real height */
 	width: 320px;
+	/* Height fits the content; JS caps it to the viewport below the top edge.
+	   The min keeps a loading panel from collapsing to a bare header. */
+	min-height: 140px;
+	max-height: calc(100vh - 12px);
 	background: var(--sd-bg);
 	border-inline-start: 1px solid var(--sd-border);
 	border-inline-end: 1px solid var(--sd-border);
@@ -194,17 +197,111 @@
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
 	font-size: 13px;
 	color: #1e1e1e;
-	animation: sd-panel-in 0.18s ease-out;
+	animation: sd-panel-in 0.22s ease-out;
+	/* Sibling panels glide up/down as the column re-flows. */
+	transition: top 0.22s ease-out, left 0.22s ease-out;
 }
 
+/* A panel slides out from beneath its parent drawer: right → left in LTR,
+   mirrored for RTL so the cascade always grows away from the launcher. */
 @keyframes sd-panel-in {
 	from {
-		opacity: 0;
-		transform: translateX(12px);
+		opacity: 0.35;
+		transform: translateX(100%);
 	}
 	to {
 		opacity: 1;
 		transform: none;
+	}
+}
+
+[dir="rtl"] .sd-panel {
+	animation-name: sd-panel-in-rtl;
+}
+
+@keyframes sd-panel-in-rtl {
+	from {
+		opacity: 0.35;
+		transform: translateX(-100%);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Close: slide back the way it came, left → right in LTR. */
+.sd-panel.is-closing {
+	animation: sd-panel-out 0.2s ease-in forwards;
+}
+
+@keyframes sd-panel-out {
+	from {
+		opacity: 1;
+		transform: none;
+	}
+	to {
+		opacity: 0.35;
+		transform: translateX(100%);
+	}
+}
+
+[dir="rtl"] .sd-panel.is-closing {
+	animation-name: sd-panel-out-rtl;
+}
+
+@keyframes sd-panel-out-rtl {
+	from {
+		opacity: 1;
+		transform: none;
+	}
+	to {
+		opacity: 0.35;
+		transform: translateX(-100%);
+	}
+}
+
+/* Bottom sheet: panels rise from (and sink back into) the sheet's top edge. */
+.sd-panel--bottom {
+	animation-name: sd-panel-in-up;
+	/* Panels share screen space with the sheet in bottom mode — ride above
+	   it (right-mode panels never overlap, so this is a no-op there). */
+	z-index: calc(var(--sd-z) + 1);
+	box-shadow: 0 -8px 32px 0 rgba(0, 0, 0, 0.18);
+	border: 1px solid var(--sd-border);
+	border-bottom: none;
+}
+
+[dir="rtl"] .sd-panel--bottom {
+	animation-name: sd-panel-in-up;
+}
+
+@keyframes sd-panel-in-up {
+	/* Small rise: the panel's top edge already sits above the sheet, so a
+	   full-height translate would fly it across the entire screen. */
+	from {
+		opacity: 0.35;
+		transform: translateY(24px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.sd-panel--bottom.is-closing,
+[dir="rtl"] .sd-panel--bottom.is-closing {
+	animation-name: sd-panel-out-down;
+}
+
+@keyframes sd-panel-out-down {
+	from {
+		opacity: 1;
+		transform: none;
+	}
+	to {
+		opacity: 0.35;
+		transform: translateY(24px);
 	}
 }
 
@@ -213,6 +310,8 @@
 	flex: 1 1 auto;
 	min-height: 0;
 	overflow-y: auto;
+	/* Cubby content must never push the panel into horizontal scrolling. */
+	overflow-x: hidden;
 	padding: 14px;
 }
 
@@ -269,6 +368,9 @@
 	border-radius: 4px;
 	margin-bottom: 6px;
 	background: #fff;
+	/* Links rows too: long labels truncate instead of widening the panel. */
+	min-width: 0;
+	overflow: hidden;
 }
 
 .sd-row-title {
@@ -345,6 +447,11 @@
 	text-decoration: none;
 	font-size: 13px;
 	color: var(--sd-accent);
+	/* Shrink + truncate long link labels. */
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .sd-links-add {
@@ -385,15 +492,27 @@
 	gap: 4px;
 }
 
+.sd-notes-list > * {
+	/* Grid items need an explicit min-width to be allowed to shrink. */
+	min-width: 0;
+	overflow: hidden;
+}
+
 .sd-note-row {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	gap: 8px;
+	/* Never let row content widen the panel; the title truncates instead. */
+	min-width: 0;
+	overflow: hidden;
 }
 
 .sd-note-open {
 	flex: 1 1 auto;
+	/* Allow shrinking below content width so the ellipsis below can engage;
+	   without this a long title forces the panel to scroll horizontally. */
+	min-width: 0;
 	text-align: left;
 	background: none;
 	border: none;
@@ -594,6 +713,7 @@
 /* Reduced motion: everything arrives instantly, confetti skipped in JS */
 @media (prefers-reduced-motion: reduce) {
 	.sd-drawer,
+	.sd-panel,
 	.sd-ghost,
 	.sd-toast {
 		transition: none;
