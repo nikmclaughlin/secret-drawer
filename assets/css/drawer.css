@@ -643,32 +643,49 @@
 .sd-ghost {
 	position: fixed;
 	z-index: calc(var(--sd-z) + 1);
-	/* Centered on screen, not parked low near the bottom. */
-	inset-inline: 0;
+	/* Final resting point: dead center of the screen. */
+	left: 50%;
 	top: 50%;
-	transform: translateY(-50%);
-	text-align: center;
 	font-size: 18px;
 	letter-spacing: 0.04em;
 	color: var(--sd-accent);
 	opacity: 0;
 	animation: sd-ghost 1.6s ease-out forwards;
 	pointer-events: none;
+	/* Where the flight starts, set per drawer position below. */
+	--sd-ghost-x: 0px;
+	--sd-ghost-y: 0px;
 }
 
-/* Grow in (opacity + scale ramp together), then fade out at full size. */
+/* Launch from the drawer's edge: right drawer flies in from the right
+ * edge, bottom sheet from the bottom edge. RTL mirrors the right drawer. */
+.sd-ghost--right {
+	--sd-ghost-x: 50vw;
+}
+
+.sd-ghost--bottom {
+	--sd-ghost-y: 50vh;
+}
+
+[dir="rtl"] .sd-ghost--right {
+	--sd-ghost-x: -50vw;
+}
+
+/* Grow in while flying from the drawer's edge to center, then fade out
+ * at full size. The centering offset travels inside every keyframe so
+ --sd-ghost-x/y only ever *adds* to it. */
 @keyframes sd-ghost {
 	0% {
 		opacity: 0;
-		transform: translateY(-50%) scale(0.55);
+		transform: translate(calc(-50% + var(--sd-ghost-x)), calc(-50% + var(--sd-ghost-y))) scale(0.55);
 	}
 	45% {
 		opacity: 1;
-		transform: translateY(-50%) scale(1.25);
+		transform: translate(-50%, -50%) scale(1.25);
 	}
 	100% {
 		opacity: 0;
-		transform: translateY(-50%) scale(1.25);
+		transform: translate(-50%, -50%) scale(1.25);
 	}
 }
 

@@ -93,16 +93,16 @@
 		}
 	}
 
-	/** Brief confirmation of the matched word, near the bottom center. */
+	/** Brief confirmation of the matched word: blooms in from the drawer. */
 	function ghostFlash() {
 		var el = document.createElement( 'div' );
-		el.className = 'sd-ghost';
+		el.className = 'sd-ghost ' + ( isBottomMode() ? 'sd-ghost--bottom' : 'sd-ghost--right' );
 		el.textContent = '…' + currentTrigger();
 		el.setAttribute( 'aria-hidden', 'true' );
 		document.body.appendChild( el );
 		window.setTimeout( function () {
 			el.remove();
-		}, 400 );
+		}, 1800 );
 	}
 
 	/* ------------------------------------------------------------------ *
