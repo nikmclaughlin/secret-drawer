@@ -57,7 +57,11 @@
 	 * ------------------------------------------------------------------ */
 
 	var buffer = '';
-	var trigger = String( config.trigger || '' ).toLowerCase();
+
+	/** The active secret word, read live so applySettings() takes effect immediately. */
+	function currentTrigger() {
+		return String( config.trigger || '' ).toLowerCase();
+	}
 
 	function isTextField( el ) {
 		if ( ! el || ! el.tagName ) {
@@ -81,6 +85,7 @@
 			return;
 		}
 		buffer = ( buffer + event.key.toLowerCase() ).slice( -16 );
+		var trigger = currentTrigger();
 		if ( trigger.length > 1 && buffer.slice( -trigger.length ) === trigger ) {
 			buffer = '';
 			ghostFlash();
@@ -92,7 +97,7 @@
 	function ghostFlash() {
 		var el = document.createElement( 'div' );
 		el.className = 'sd-ghost';
-		el.textContent = '…' + trigger;
+		el.textContent = '…' + currentTrigger();
 		el.setAttribute( 'aria-hidden', 'true' );
 		document.body.appendChild( el );
 		window.setTimeout( function () {
