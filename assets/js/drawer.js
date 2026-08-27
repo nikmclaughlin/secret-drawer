@@ -222,6 +222,7 @@
 	 * module so a tab switch can flush the pending save immediately.
 	 */
 	var pendingNotes = null;
+	var openNoteEditorId = null;
 
 	function saveNotesNow() {
 		// Resolve the field at call time (delegation model — no stored refs).
@@ -277,7 +278,7 @@
 					return;
 				}
 				pendingNotes = { timer: null };
-				var indicator = field.closest( '.sd-note' ).querySelector( '.sd-save-ind' );
+				var indicator = field.closest( '.sd-note-editor' ).querySelector( '.sd-save-ind' );
 				if ( indicator ) {
 					indicator.textContent = 'Saving…';
 				}
@@ -289,8 +290,14 @@
 
 			mount.addEventListener( 'click', function ( event ) {
 				var newBtn = event.target.closest( '[data-sd-note-new]' );
+				var openBtn = event.target.closest( '[data-sd-note-open]' );
 				var delBtn = event.target.closest( '[data-sd-note-delete]' );
 
+				// The New note button doubles as "← All notes" while a note is open.
+				if ( newBtn && editorOpen() ) {
+					closeNoteEditor( mount );
+					return;
+				}
 				if ( newBtn ) {
 					window.fetch( config.restRoot + '/cubbies/notes/create', {
 						method: 'POST',
@@ -302,16 +309,18 @@
 						}
 						return res.json();
 					} ).then( function ( data ) {
-						renderNotes( mount, [ { id: data.id, content: '' } ], true );
+						// Open the new note straight into the editor.
+						openNoteEditor( mount, { id: data.id, content: '' }, true );
 					} ).catch( function () {} );
 				}
 
 				if ( delBtn ) {
-					var card = delBtn.closest( '.sd-note' );
-					var id = card ? card.querySelector( '[data-sd-notes]' ) : null;
+					var row = delBtn.closest( '.sd-note-row' );
+					var id = row ? row.getAttribute( 'data-note-id' ) : null;
 					if ( ! id ) {
 						return;
 					}
+					var wasOpen = openNoteEditorId && openNoteEditorId === id;
 					window.fetch( config.restRoot + '/cubbies/notes/delete', {
 						method: 'POST',
 						credentials: 'same-origin',
@@ -319,57 +328,95 @@
 							'Content-Type': 'application/json',
 							'X-WP-Nonce': config.nonce
 						},
-						body: JSON.stringify( { id: id.dataset.sdNote } )
+						body: JSON.stringify( { id: id } )
 					} ).then( function ( res ) {
 						if ( ! res.ok ) {
 							throw new Error( 'status ' + res.status );
 						}
-						return card.remove();
-					} ).then( function () {} ).catch( function () {} );
+						if ( wasOpen ) {
+							openNoteEditorId = null;
+						}
+						return row.remove();
+					} ).then( function () {
+						// Deleted the note currently being edited → back to list.
+						if ( editorOpen() ) {
+							closeNoteEditor( mount );
+						}
+						if ( ! mount.querySelector( '.sd-note-row' ) ) {
+							var list = mount.querySelector( '.sd-notes-list' );
+							if ( list ) {
+								list.insertAdjacentHTML( 'beforebegin', '<p class="sd-muted">' + ( config.strings.emptyNotes || 'No notes yet.' ) + '</p>' );
+							}
+						}
+					} ).catch( function () {} );
 				}
 			} );
 		}
 	}
 
 	/** Insert a note card (used after create; list re-fetches on next visit). */
-	function renderNotes( mount, notes, focusNew ) {
+	function openNoteEditor( mount, note, focusEditor ) {
+		var editor = mount.querySelector( '.sd-note-editor' );
 		var list = mount.querySelector( '.sd-notes-list' );
-		if ( ! list ) {
-			fetchCubby( 'notes', mount );
+		var empty = mount.querySelector( '.sd-muted' );
+		var newBtn = mount.querySelector( '[data-sd-note-new]' );
+		if ( ! editor ) {
 			return;
 		}
-		notes.forEach( function ( note ) {
-			var li = document.createElement( 'li' );
-			li.className = 'sd-note';
-			var ta = document.createElement( 'textarea' );
-			ta.className = 'sd-notes';
-			ta.setAttribute( 'data-sd-note', note.id );
-			ta.setAttribute( 'rows', '4' );
-			ta.value = note.content || '';
-			var meta = document.createElement( 'p' );
-			meta.className = 'sd-note-meta';
-			var ind = document.createElement( 'span' );
-			ind.className = 'sd-save-ind';
-			ind.setAttribute( 'aria-live', 'polite' );
-			var del = document.createElement( 'button' );
-			del.type = 'button';
-			del.className = 'sd-icon-button';
-			del.setAttribute( 'data-sd-note-delete', note.id );
-			del.setAttribute( 'aria-label', 'Delete note' );
-			del.textContent = '✕';
-			meta.appendChild( ind );
-			meta.appendChild( del );
-			li.appendChild( ta );
-			li.appendChild( meta );
-			list.appendChild( li );
-			if ( focusNew ) {
-				ta.focus();
-			}
-		} );
-		var empty = mount.querySelector( '.sd-muted' );
-		if ( empty && empty.textContent.indexOf( 'No notes yet' ) !== -1 ) {
-			empty.remove();
+		openNoteEditorId = note.id;
+
+		// Hide the list, show the editor.
+		if ( list ) {
+			list.hidden = true;
 		}
+		if ( empty ) {
+			empty.hidden = true;
+		}
+		editor.hidden = false;
+		editor.innerHTML = '';
+		var ta = document.createElement( 'textarea' );
+		ta.className = 'sd-notes';
+		ta.setAttribute( 'data-sd-note', note.id );
+		ta.setAttribute( 'rows', '8' );
+		ta.value = note.content || '';
+		var meta = document.createElement( 'p' );
+		meta.className = 'sd-note-meta';
+		var ind = document.createElement( 'span' );
+		ind.className = 'sd-save-ind';
+		ind.setAttribute( 'aria-live', 'polite' );
+		meta.appendChild( ind );
+		editor.appendChild( ta );
+		editor.appendChild( meta );
+		if ( focusEditor ) {
+			ta.focus();
+		}
+		// Button flips to the back affordance.
+		if ( newBtn ) {
+			newBtn.textContent = newBtn.dataset.labelAll || '← All notes';
+		}
+	}
+
+	function closeNoteEditor( mount ) {
+		var editor = mount.querySelector( '.sd-note-editor' );
+		var list = mount.querySelector( '.sd-notes-list' );
+		var newBtn = mount.querySelector( '[data-sd-note-new]' );
+		// Flush any debounced save before leaving the textarea.
+		flushPendingNotes();
+		openNoteEditorId = null;
+		if ( editor ) {
+			editor.hidden = true;
+			editor.innerHTML = '';
+		}
+		if ( list ) {
+			list.hidden = false;
+		}
+		if ( newBtn ) {
+			newBtn.textContent = newBtn.dataset.labelNew || '＋ New note';
+		}
+	}
+
+	function editorOpen() {
+		return null !== openNoteEditorId;
 	}
 
 	/**

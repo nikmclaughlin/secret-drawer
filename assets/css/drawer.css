@@ -319,8 +319,50 @@
 	margin: 0;
 	padding: 0;
 	display: grid;
-	gap: 10px;
+	gap: 4px;
 }
+
+.sd-note-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+}
+
+.sd-note-open {
+	flex: 1 1 auto;
+	text-align: left;
+	background: none;
+	border: none;
+	padding: 4px 2px;
+	font-size: 13px;
+	color: var(--sd-link, #2271b1);
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sd-note-open:hover {
+	text-decoration: underline;
+}
+
+.sd-note-editor[hidden] {
+	display: none;
+}
+
+.sd-note-editor .sd-notes {
+	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--sd-border);
+	border-radius: 3px;
+	padding: 6px 8px;
+	font-size: 13px;
+	min-height: 160px;
+	resize: vertical;
+}
+
+.sd-note-editor[hidden] {
 
 .sd-note {
 	border: 1px solid var(--sd-border);
