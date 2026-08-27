@@ -172,6 +172,7 @@
 			return res.json();
 		} ).then( function ( data ) {
 			mount.innerHTML = data && data.html ? String( data.html ) : '';
+			wireCubby( id, mount );
 		} ).catch( function () {
 			// Routes for a cubby may not exist yet (M3); show a quiet placeholder.
 			mount.innerHTML = '';
@@ -180,6 +181,134 @@
 			p.textContent = config.strings.emptyCubby;
 			mount.appendChild( p );
 		} );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Cubby interactions (event delegation — survives body re-renders)
+	 * ------------------------------------------------------------------ */
+
+	function wireCubby( id, mount ) {
+		if ( 'notes' === id ) {
+			wireNotes( mount );
+		} else if ( 'links' === id ) {
+			wireLinks( mount );
+		}
+		// Notifications is display-only.
+	}
+
+	/**
+	 * Notes: debounced autosave (1.2s), status line reflects each state.
+	 */
+	function wireNotes( mount ) {
+		var field = mount.querySelector( '[data-sd-notes]' );
+		var indicator = mount.querySelector( '.sd-save-ind' );
+		if ( ! field ) {
+			return;
+		}
+
+		var timer = null;
+
+		field.addEventListener( 'input', function () {
+			if ( timer ) {
+				window.clearTimeout( timer );
+			}
+			if ( indicator ) {
+				indicator.textContent = 'Saving…';
+			}
+			timer = window.setTimeout( function () {
+				window.fetch( config.restRoot + '/cubbies/notes/save', {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': config.nonce
+					},
+					body: JSON.stringify( { content: field.value } )
+				} ).then( function ( res ) {
+					if ( ! res.ok ) {
+						throw new Error( 'status ' + res.status );
+					}
+					if ( indicator ) {
+						indicator.textContent = 'Saved ✓';
+					}
+				} ).catch( function () {
+					if ( indicator ) {
+						indicator.textContent = 'Save failed — will retry on next edit.';
+					}
+				} );
+			}, 1200 );
+		} );
+	}
+
+	/**
+	 * Links: delegated add/remove; the API returns the fresh list, so the
+	 * body re-renders from a single source of truth.
+	 */
+	function wireLinks( mount ) {
+		mount.addEventListener( 'click', function ( event ) {
+			var addBtn = event.target.closest( '[data-sd-link-add]' );
+			var delBtn = event.target.closest( '[data-sd-link-delete]' );
+
+			if ( addBtn ) {
+				var labelInput = mount.querySelector( '.sd-link-label' );
+				var urlInput = mount.querySelector( '.sd-link-url' );
+				if ( ! labelInput || ! urlInput ) {
+					return;
+				}
+				window.fetch( config.restRoot + '/cubbies/links/add', {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': config.nonce
+					},
+					body: JSON.stringify( {
+						label: labelInput.value,
+						url: urlInput.value
+					} )
+				} ).then( function ( res ) {
+					if ( ! res.ok ) {
+						throw new Error( 'status ' + res.status );
+					}
+					return res.json();
+				} ).then( function ( data ) {
+					renderLinks( mount, data.links || [] );
+					labelInput.value = '';
+					urlInput.value = '';
+				} ).catch( function () {} );
+			}
+
+			if ( delBtn ) {
+				var row = delBtn.closest( '.sd-link-row' );
+				var index = row ? row.getAttribute( 'data-index' ) : null;
+				if ( null === index ) {
+					return;
+				}
+				window.fetch( config.restRoot + '/cubbies/links/remove', {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': config.nonce
+					},
+					body: JSON.stringify( { index: parseInt( index, 10 ) } )
+				} ).then( function ( res ) {
+					if ( ! res.ok ) {
+						throw new Error( 'status ' + res.status );
+					}
+					return res.json();
+				} ).then( function ( data ) {
+					renderLinks( mount, data.links || [] );
+				} ).catch( function () {} );
+			}
+		} );
+	}
+
+	/** Re-render the links list from fresh data. */
+	function renderLinks( mount, links ) {
+		// The server's markup for the list is the source of truth; simplest
+		// correct approach is to re-fetch the body HTML.
+		fetchCubby( 'links', mount );
 	}
 
 	/* ------------------------------------------------------------------ *
