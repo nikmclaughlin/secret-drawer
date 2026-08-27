@@ -230,18 +230,25 @@ ergonomics — it can ship its own build.)
 
 | Store | Key | Type | Scope |
 |-------|-----|------|-------|
-| option | `secret_drawer` | `{ version, roles[], trigger_word, cubbies[], width, position }` | site |
-| usermeta | `secret_drawer_notes` | text | per-user |
-| usermeta | `secret_drawer_links` | array of `{label, url}` | per-user |
-| usermeta | `secret_drawer_discovered` | timestamp | per-user |
+| option | `secret_drawer_settings` | `{ version, roles[], trigger_word, cubbies[], width, position }` | site |
+| usermeta | `secret_drawer_cubby_notes` | text | per-user (cubby `notes`) |
+| usermeta | `secret_drawer_cubby_links` | array of `{label, url}` | per-user (cubby `links`) |
+| usermeta | `secret_drawer_discovered` | timestamp | per-user (drawer-level) |
 | transient | `secret_drawer_notif_{blog}` | counts array, 60s | site cache |
+
+**Naming convention (bake in at M0):**
+- Drawer-scoped data: `secret_drawer_{thing}` (`_settings`, `_discovered`).
+- Cubby-scoped user data: `secret_drawer_cubby_{id}` — one pattern, so
+  third-party cubbies have an obvious, collision-free home for their
+  per-user data, and uninstall can sweep `secret_drawer_cubby_%`.
 
 Notes: `sanitize_textarea_field` on save, `esc_html` + `nl2br` on output.
 Links: `wp_kses`-safe label, `esc_url_raw` + scheme allowlist (`http, https`)
 on save, `esc_url` on output.
 
-`uninstall.php` deletes the option and `delete_metadata( 'user', 0, ... )`
-for all three usermeta keys.
+`uninstall.php` deletes `secret_drawer_settings`, sweeps all
+`secret_drawer_cubby_%` usermeta plus `secret_drawer_discovered` via
+`delete_metadata( 'user', 0, ... )`, and clears the notifications transient.
 
 ---
 
