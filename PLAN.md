@@ -527,10 +527,24 @@ ESC pops one level; closing the launcher flushes + closes all panels.
 Layout refinement pass (above) verified by Nik on 2026-08-27: cascade,
 toggle, bottom-mode anchoring, live note list, truncation all confirmed.
 
-### M4 — Cubby API + docs
-Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,
-example third-party cubby in README, `SECRET-DRAWER-EXTENDING.md` or
-README section.
+### M4 — Cubby API + docs ✅
+Registry (`class-cubby-registry.php`) owns the catalog: applies the
+`secret_drawer_cubbies` filter over the built-ins, normalizes entries,
+sorts by `order` (stable), and drops types whose `capability` the current
+user lacks (checked at enqueue *and* render). Settings' `cubby_catalog()`
+delegates to `Registry::ungated()` — sanitization must validate against
+every known type, not just the ones the current user can see. REST
+`GET /cubbies/{id}` renders through `Registry::render()` (per-type
+`render` callback, built-ins delegate to their classes), so third-party
+cubbies return real HTML. Levers cubby (§8.4) ships with the API: default
+set is copy-site-URL (client-side, clipboard) + empty-trash (server-side,
+`edit_others_posts`, confirmation required), filterable via
+`secret_drawer_levers`, pulled through
+`POST /cubbies/levers/pull` (re-checks cap, 404s unknown ids). JS:
+`secret-drawer:cubby:shown` event now dispatched; `wireLevers()` handles
+`[data-sd-lever]` with confirm/clipboard/REST paths. Docs:
+`SECRET-DRAWER-EXTENDING.md` (cubby schema, lever schema, JS API,
+complete drop-in example cubby).
 **AC:** drop-in example cubby renders as a fourth tab.
 
 ### M5 — Polish & release-readiness

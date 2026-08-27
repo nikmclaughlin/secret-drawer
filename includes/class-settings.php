@@ -87,35 +87,16 @@ class Secret_Drawer_Settings {
 	/**
 	 * The cubby type catalog: id → {title, icon, description}.
 	 *
-	 * M4: class-cubby-registry.php takes this over and applies the
-	 * secret_drawer_cubbies filter; the shape below is the contract.
+	 * M4: class-cubby-registry.php owns the catalog — it applies the
+	 * secret_drawer_cubbies filter, sorts by order, and gates entries on
+	 * their per-type capability. Settings needs the *ungated* id list for
+	 * sanitization (a settings save must validate against every known
+	 * type, not just ones the current user can see), so it asks the
+	 * registry for its raw merged set before gating happens.
 	 *
 	 * @return array[]
 	 */
 	public static function cubby_catalog() {
-		$catalog = array(
-			'notes'         => array(
-				'title'       => __( 'Notes', 'secret-drawer' ),
-				'icon'        => 'dashicons-edit-page',
-				'description' => __( 'A private scratchpad, autosaved to your profile.', 'secret-drawer' ),
-			),
-			'links'         => array(
-				'title'       => __( 'Quick Links', 'secret-drawer' ),
-				'icon'        => 'dashicons-admin-links',
-				'description' => __( 'Your own curated jump list of admin screens.', 'secret-drawer' ),
-			),
-			'notifications' => array(
-				'title'       => __( 'Notifications', 'secret-drawer' ),
-				'icon'        => 'dashicons-bell',
-				'description' => __( 'Update and moderation counts, with deep links.', 'secret-drawer' ),
-			),
-		);
-
-		/**
-		 * Register cubby types. See PLAN.md §7 for the schema.
-		 *
-		 * @param array[] $catalog Cubby type catalog.
-		 */
-		return (array) apply_filters( 'secret_drawer_cubbies', $catalog );
+		return Secret_Drawer_Cubby_Registry::ungated();
 	}
 }

@@ -193,8 +193,89 @@
 			wireNotes( mount, panelEl );
 		} else if ( 'links' === id ) {
 			wireLinks( mount );
+		} else if ( 'levers' === id ) {
+			wireLevers( mount );
 		}
 		// Notifications is display-only.
+	}
+
+	/**
+	 * Levers: delegated click handling for [data-sd-lever] buttons.
+	 * `data-confirm` levers ask first; copy levers use the clipboard API;
+	 * everything else POSTs to /cubbies/levers/pull and reports the result.
+	 */
+	function wireLevers( mount ) {
+		if ( mount.dataset.leversWired ) {
+			return;
+		}
+		mount.dataset.leversWired = '1';
+
+		mount.addEventListener( 'click', function ( event ) {
+			var btn = event.target.closest( '[data-sd-lever]' );
+			if ( ! btn || btn.disabled ) {
+				return;
+			}
+
+			var id = btn.getAttribute( 'data-sd-lever' );
+			var label = btn.getAttribute( 'data-lever-label' ) || id;
+
+			if ( btn.getAttribute( 'data-confirm' ) ) {
+				if ( ! window.confirm( btn.getAttribute( 'data-confirm' ) ) ) {
+					return;
+				}
+			}
+
+			// Client-side lever: copy site URL.
+			if ( 'copy_site_url' === id ) {
+				var url = config.siteUrl || window.location.origin;
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					navigator.clipboard.writeText( url ).then( function () {
+						snackbar( 'Copied ✓' );
+					}, function () {
+						snackbar( url );
+					} );
+				} else {
+					snackbar( url );
+				}
+				return;
+			}
+
+			btn.disabled = true;
+			window.fetch( config.restRoot + '/cubbies/levers/pull', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': config.nonce
+				},
+				body: JSON.stringify( { id: id } )
+			} ).then( function ( res ) {
+				return res.json().then( function ( data ) {
+					if ( ! res.ok ) {
+						throw new Error( ( data && data.message ) || ( 'status ' + res.status ) );
+					}
+					return data;
+				} );
+			} ).then( function ( data ) {
+				btn.disabled = false;
+				var parts = [];
+				if ( data && data.result ) {
+					if ( data.result.deleted_posts ) {
+						parts.push( data.result.deleted_posts + ' posts' );
+					}
+					if ( data.result.deleted_comments ) {
+						parts.push( data.result.deleted_comments + ' comments' );
+					}
+					if ( ! parts.length ) {
+						parts.push( 'nothing to delete' );
+					}
+				}
+				snackbar( ( data && data.ok ? 'Done' : 'Done' ) + ( parts.length ? ' — ' + parts.join( ', ' ) : '' ) );
+			} ).catch( function () {
+				btn.disabled = false;
+				snackbar( 'Could not pull that lever.' );
+			} );
+		} );
 	}
 
 	/** Hide/show the links add-form (it starts hidden behind a New link button). */
@@ -809,6 +890,8 @@
 		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
 			popPanel( el );
 		} );
+		// Public event for cubby authors: this cubby is now on screen.
+		emitCubbyShown( cubbyId );
 	}
 
 	/** The record for `target` plus every panel chained beneath it. */
@@ -1350,6 +1433,13 @@
 			openPanel( id, null );
 		}
 	};
+
+	/** Fire the public "a cubby was shown" event for cubby authors. */
+	function emitCubbyShown( id ) {
+		document.dispatchEvent(
+			new CustomEvent( 'secret-drawer:cubby:shown', { detail: { id: id } } )
+		);
+	}
 
 	// A fresh login (logout/login) starts with the drawer closed: the
 	// server stamps every login with its own session token in the config.

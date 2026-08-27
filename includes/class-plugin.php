@@ -44,18 +44,21 @@ final class Secret_Drawer_Plugin {
 		require_once SECRET_DRAWER_DIR . 'includes/class-rest.php';
 		new Secret_Drawer_Rest();
 
-		// Built-in cubbies (M3). M4: requires move to class-cubby-registry.php.
+		// Built-in cubbies (M3). M4: move the catalog to class-cubby-registry.php.
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-notes.php';
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-links.php';
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-notifications.php';
+		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-levers.php';
 		Secret_Drawer_Cubby_Notifications::hooks();
 
+		require_once SECRET_DRAWER_DIR . 'includes/class-cubby-registry.php';
 		require_once SECRET_DRAWER_DIR . 'includes/class-rest-cubbies.php';
 		new Secret_Drawer_Rest_Cubbies();
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
-		// M4: cubby registry (class-cubby-registry.php).
+		// Levers cubby: one-click actions (ships with the Cubby API at M4).
+		// M4: cubby registry now lives in class-cubby-registry.php.
 	}
 
 	/**

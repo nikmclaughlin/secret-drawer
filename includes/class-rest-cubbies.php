@@ -37,6 +37,24 @@ class Secret_Drawer_Rest_Cubbies {
 			)
 		);
 
+		// Pull a lever: run a registered lever's action server-side.
+		register_rest_route(
+			'secret-drawer/v1',
+			'/cubbies/levers/pull',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'pull_lever' ),
+				'permission_callback' => array( $this, 'can_access' ),
+				'args'                => array(
+					'id' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+
 		// Notes: save one note by id.
 		register_rest_route(
 			'secret-drawer/v1',
@@ -170,31 +188,8 @@ class Secret_Drawer_Rest_Cubbies {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_cubby( $request ) {
-		$id    = (string) $request['id'];
-		$known = Secret_Drawer_Settings::cubby_catalog();
-
-		if ( ! isset( $known[ $id ] ) || empty( $known[ $id ]['title'] ) ) {
-			return new WP_Error(
-				'sd_unknown_cubby',
-				__( 'Unknown cubby.', 'secret-drawer' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		switch ( $id ) {
-			case 'notes':
-				$html = Secret_Drawer_Cubby_Notes::get_html();
-				break;
-			case 'links':
-				$html = Secret_Drawer_Cubby_Links::get_html();
-				break;
-			case 'notifications':
-				$html = Secret_Drawer_Cubby_Notifications::get_html();
-				break;
-			default:
-				$html = '';
-				break;
-		}
+		$id   = (string) $request['id'];
+		$html = Secret_Drawer_Cubby_Registry::render( $id );
 
 		if ( '' === $html ) {
 			return new WP_Error(
@@ -205,6 +200,56 @@ class Secret_Drawer_Rest_Cubbies {
 		}
 
 		return rest_ensure_response( array( 'html' => $html ) );
+	}
+
+	/**
+	 * POST /cubbies/levers/pull — run a lever's server-side action.
+	 *
+	 * Validates the lever id against the filtered catalog, re-checks the
+	 * lever's capability, then runs the action. Client-side levers
+	 * (null action, e.g. copy-site-URL) never reach this route.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function pull_lever( $request ) {
+		$id    = (string) $request->get_param( 'id' );
+		$lever = Secret_Drawer_Cubby_Levers::levers()[ $id ] ?? null;
+
+		if ( ! $lever || ! is_array( $lever ) ) {
+			return new WP_Error(
+				'sd_unknown_lever',
+				__( 'Unknown lever.', 'secret-drawer' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$cap = (string) ( $lever['cap'] ?? '' );
+		if ( '' !== $cap && ! current_user_can( $cap ) ) {
+			return new WP_Error(
+				'sd_forbidden_lever',
+				__( 'You are not allowed to pull this lever.', 'secret-drawer' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		if ( empty( $lever['action'] ) || ! is_callable( $lever['action'] ) ) {
+			return new WP_Error(
+				'sd_client_lever',
+				__( 'This lever has no server-side action.', 'secret-drawer' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$result = call_user_func( $lever['action'] );
+
+		return rest_ensure_response(
+			array(
+				'ok'     => true,
+				'lever'  => $id,
+				'result' => $result,
+			)
+		);
 	}
 
 	/**

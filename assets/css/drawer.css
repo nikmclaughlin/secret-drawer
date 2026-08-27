@@ -729,3 +729,21 @@
 		display: none;
 	}
 }
+/* Levers cubby: pull-able buttons with breathing room. */
+.sd-levers {
+	display: grid;
+	gap: 10px;
+}
+
+.sd-lever {
+	justify-self: start;
+}
+
+.sd-lever[disabled] {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+.sd-lever-desc {
+	margin: -6px 0 0;
+}

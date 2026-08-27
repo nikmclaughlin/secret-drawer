@@ -89,6 +89,7 @@ class Secret_Drawer_Assets {
 			'trigger'        => (string) apply_filters( 'secret_drawer_trigger_word', $settings['trigger_word'] ),
 			'width'          => (int) $settings['width'],
 			'position'       => 'bottom' === $settings['position'] ? 'bottom' : 'right',
+			'siteUrl'        => home_url( '/' ),
 			'discovered'     => (bool) get_user_meta( get_current_user_id(), 'secret_drawer_discovered', true ),
 			'cubbies'        => self::cubbies_for_user( $settings ),
 			'catalog'        => self::catalog_for_user( $settings ),
@@ -127,14 +128,11 @@ class Secret_Drawer_Assets {
 	 */
 	private static function catalog_for_user( $settings ) {
 		$out = array();
-		foreach ( Secret_Drawer_Settings::cubby_catalog() as $id => $cubby ) {
-			if ( empty( $cubby['title'] ) ) {
-				continue;
-			}
+		foreach ( Secret_Drawer_Cubby_Registry::all() as $id => $cubby ) {
 			$out[ $id ] = array(
 				'title'       => $cubby['title'],
-				'icon'        => isset( $cubby['icon'] ) ? (string) $cubby['icon'] : 'dashicons-marker',
-				'description' => isset( $cubby['description'] ) ? (string) $cubby['description'] : '',
+				'icon'        => (string) $cubby['icon'],
+				'description' => (string) $cubby['description'],
 			);
 		}
 		return $out;
@@ -154,8 +152,7 @@ class Secret_Drawer_Assets {
 	}
 
 	/**
-	 * Enabled cubby metadata for the tab strip (id/title/icon shape fixed
-	 * at M1; the catalog source moves to the registry at M4).
+	 * Enabled cubby metadata for the launcher card grid (id/title/icon).
 	 *
 	 * @param array $settings Settings.
 	 * @return array[]
@@ -163,12 +160,12 @@ class Secret_Drawer_Assets {
 	private static function cubbies_for_user( $settings ) {
 		$out = array();
 		foreach ( (array) $settings['enabled_cubbies'] as $id ) {
-			$meta = Secret_Drawer_Settings::cubby_catalog()[ $id ] ?? null;
-			if ( $meta && ! empty( $meta['title'] ) ) {
+			$meta = Secret_Drawer_Cubby_Registry::get( $id );
+			if ( $meta ) {
 				$out[] = array(
 					'id'    => $id,
 					'title' => $meta['title'],
-					'icon'  => isset( $meta['icon'] ) ? (string) $meta['icon'] : 'dashicons-marker',
+					'icon'  => (string) $meta['icon'],
 				);
 			}
 		}

@@ -25,6 +25,11 @@ No build step: plain PHP, plain JS (`wp-components` via
 find . -name '*.php' ! -path './vendor/*' -exec php -l {} \;
 ```
 
+## Extending
+
+Other plugins can add their own cubbies and levers with one filter —
+see [SECRET-DRAWER-EXTENDING.md](SECRET-DRAWER-EXTENDING.md).
+
 ## License
 
 GPL-2.0-or-later
