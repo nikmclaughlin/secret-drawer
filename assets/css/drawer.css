@@ -181,7 +181,8 @@
 .sd-panel {
 	position: fixed;
 	top: 0;
-	bottom: 0;
+	bottom: auto;
+	height: 25vh; /* fallback; JS sets 1/4 of the launcher's real height */
 	width: 320px;
 	background: var(--sd-bg);
 	border-inline-start: 1px solid var(--sd-border);

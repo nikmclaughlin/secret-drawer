@@ -697,10 +697,15 @@
 		if ( drawer ) {
 			return drawer.getBoundingClientRect();
 		}
-		// No launcher in the DOM (edge case): synthesize an anchor.
+		// No launcher in the DOM (edge case): synthesize a full-height anchor.
 		return isRTL()
-			? { left: 0, right: 0 }
-			: { left: window.innerWidth, right: window.innerWidth };
+			? { left: 0, right: 0, top: 0, height: window.innerHeight }
+			: { left: window.innerWidth, right: window.innerWidth, top: 0, height: window.innerHeight };
+	}
+
+	/** Panels are 1/4 the launcher's height (the joke needs room, not a monolith). */
+	function panelHeightFor( rect ) {
+		return Math.max( 180, Math.round( rect.height / 4 ) );
 	}
 
 	/** Where a panel chained to a parent rect should sit (viewport left). */
@@ -728,6 +733,8 @@
 		el.setAttribute( 'role', 'complementary' );
 		el.setAttribute( 'aria-label', cubbyTitle( cubbyId ) );
 		el.style.left = panelLeftFor( parentRect ) + 'px';
+		el.style.top = parentRect.top + 'px';
+		el.style.height = panelHeightFor( parentRect ) + 'px';
 		el.innerHTML =
 			'<header class="sd-header"><h2 class="sd-title"></h2>' +
 			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
@@ -779,8 +786,10 @@
 		state.panels.forEach( function ( panel ) {
 			var left = panelLeftFor( rect );
 			panel.el.style.left = left + 'px';
+			panel.el.style.top = rect.top + 'px';
+			panel.el.style.height = panelHeightFor( rect ) + 'px';
 			// Track positions arithmetically — mid-animation rects lie.
-			rect = { left: left, right: left + PANEL_WIDTH };
+			rect = { left: left, right: left + PANEL_WIDTH, top: rect.top, height: rect.height };
 		} );
 	}
 
