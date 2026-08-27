@@ -12,7 +12,7 @@
 word `hellodolly` — by default). Users with permission who discover it
 get a slide-out sidebar that persists across all admin pages and whose
 contents are customizable — both by the site owner (settings) and by other
-plugins (a panel API).
+plugins (a cubby API).
 
 **The vibe:** easter-egg energy. The first time a user unlocks it, they get a
 little "🔓 you found the Secret Drawer" moment. After that, it behaves like
@@ -30,16 +30,16 @@ ship — it just happens to have a secret door.
    (`hellodolly` — by default).
 2. A drawer slides in from the right edge — overlay, not a layout shift.
    A one-time toast: "🔓 You found the Secret Drawer."
-3. The drawer has panel tabs: **Notes**, **Quick Links**, **Notifications**
+3. The drawer has cubby tabs: **Notes**, **Quick Links**, **Notifications**
    in v1. Notes autosave to their user profile. Links are their own curated
    jump list. Notifications aggregate update/comment counts with deep links.
-4. ESC or ✕ closes it. Reopening restores the last-active panel. Position
+4. ESC or ✕ closes it. Reopening restores the last-active cubby. Position
    and open state persist via `localStorage`.
 5. The site owner opens the drawer's gear icon → an **in-drawer settings
    view** — never a normal admin-menu page — to choose which roles can
-   discover it, change the trigger word, toggle & reorder panels, pick
+   discover it, change the trigger word, toggle & reorder cubbies, pick
    drawer position and width.
-6. Other plugins register their own panels via a PHP filter and they show
+6. Other plugins register their own cubbies via a PHP filter and they show
    up as new tabs.
 
 ---
@@ -92,7 +92,7 @@ the admin footer.
   (default: `administrator`). Filterable:
   `apply_filters( 'secret_drawer_user_can_access', $allowed, $user )`.
 - Every REST endpoint independently re-checks access (never trust the
-  front end). Per-panel capability checks on top (e.g. Notifications
+  front end). Per-cubby capability checks on top (e.g. Notifications
   requires `update_core`).
 - Settings live *inside the drawer* (gear icon); saving requires
   `manage_options`. There is no admin-menu settings page — nothing about
@@ -102,7 +102,7 @@ the admin footer.
 
 ### 3.3 The drawer (UX spec)
 
-- Fixed-position overlay panel, full height, **320px wide** (setting:
+- Fixed-position overlay drawer, full height, **320px wide** (setting:
   280–480). Overlays content (z-index above the admin bar, ~`999999`),
   doesn't push layout — safe on every admin screen including ones with
   their own custom widths.
@@ -112,27 +112,27 @@ the admin footer.
   content (notes, link lists, notifications) is tall and list-like, which
   suits a sidebar. Bottom exists because it's one CSS modifier
   (`.sd-drawer--bottom`) and some people prefer it on small screens.
-- Structure: header (title + gear icon → settings + ✕ close), panel tab
-  strip (dashicons), active panel body, thin footer with a 🤫 wink.
+- Structure: header (title + gear icon → settings + ✕ close), cubby tab
+  strip (dashicons), active cubby body, thin footer with a 🤫 wink.
 - Enter animation ~200ms ease-out; respects `prefers-reduced-motion`.
 - On screens < 480px the drawer becomes full-width.
 - State persisted in `localStorage` under `secretDrawer.*`:
-  `open`, `lastPanel`. **User data itself is NOT in localStorage** — it's
+  `open`, `lastCubby`. **User data itself is NOT in localStorage** — it's
   server-side (usermeta) so it follows the user across browsers.
 - First unlock: one-time toast (usermeta flag `secret_drawer_discovered`),
   plus a silly confetti burst of 🤫 emoji. 400ms. Then it never bothers
   you again.
 
-### 3.4 Content model = Panels
+### 3.4 Content model = Cubbies
 
-Everything in the drawer is a **panel**: a tab with an id, title, dashicon,
+Everything in the drawer is a **cubby**: a tab with an id, title, dashicon,
 capability requirement, and a render strategy. v1 ships three built-ins;
 the registry is filterable from day one so the architecture is proven early.
 
 ### 3.5 UI direction — modern admin style, minimal custom CSS
 
 The drawer should read as *modern WordPress admin*: block-editor energy,
-`wp-components` visual language — clean panels with subtle borders,
+`wp-components` visual language — clean surfaces with subtle borders,
 `TabPanel`-style tab strips, `ToggleControl`-style switches, muted secondary
 meta text, proper focus states — not the classic `wp-list-table` /
 "admin widget" look.
@@ -156,12 +156,12 @@ CSS (`assets/css/drawer.css`, ~300 lines: layout, position, animation,
 and a few overrides to fit a 320px column). Consistency comes free from
 `wp-components`' stylesheet; the maintenance surface stays tiny.
 
-**Panel authoring follows the same rule:** panels render with
-`wp-components` primitives (a Notes panel is a `TextareaControl`, links
+**Cubby authoring follows the same rule:** cubbies render with
+`wp-components` primitives (a Notes cubby is a `TextareaControl`, links
 render as clean bordered rows with `Button` actions) rather than bespoke
-HTML. A panel *may* server-render HTML or load its own extra scripts —
+HTML. A cubby *may* server-render HTML or load its own extra scripts —
 that's the escape hatch for heavier integrations — but core-bundled
-components are the house style, and third-party panels are expected to
+components are the house style, and third-party cubbies are expected to
 follow it to stay visually at home.
 
 **Why not a hand-rolled vanilla kit:** we'd be re-deriving toggle switches,
@@ -190,11 +190,11 @@ secret-drawer/
 │   ├── class-settings.php         # Settings storage: register, sanitize,
 │   │                              #   REST-persisted (no admin-menu page)
 │   ├── class-rest.php             # REST routes registration
-│   ├── class-panel-registry.php   # Registry + secret_drawer_panels filter
-│   └── panels/
-│       ├── class-panel-notes.php
-│       ├── class-panel-links.php
-│       └── class-panel-notifications.php
+│   ├── class-cubby-registry.php   # Registry + secret_drawer_cubbies filter
+│   └── cubbies/
+│       ├── class-cubby-notes.php
+│       ├── class-cubby-links.php
+│       └── class-cubby-notifications.php
 ├── assets/
 │   ├── css/drawer.css
 │   └── js/drawer.js               # wp-components UI, no build step
@@ -204,7 +204,7 @@ secret-drawer/
 **No build step.** `drawer.js` is a single plain-JS file (no JSX/Babel/npm)
 that mounts `wp-components` UI via `wp.element.createElement` inside the
 drawer container; CSS is one file. Plugin stays npm-free while still
-looking native-modern. (Revisit only if a panel genuinely demands JSX
+looking native-modern. (Revisit only if a cubby genuinely demands JSX
 ergonomics — it can ship its own build.)
 
 ### 4.2 Load flow
@@ -216,11 +216,11 @@ ergonomics — it can ship its own build.)
 3. On `admin_enqueue_scripts` (every admin page): if
    `Secret_Drawer_Plugin::user_can_access()` → enqueue `wp-components` (+ its
    React deps), drawer CSS/JS with filemtime cache-busting, localize config:
-   REST root, `wp_rest` nonce, secret trigger word, enabled panels
+   REST root, `wp_rest` nonce, secret trigger word, enabled cubbies
    (id/title/icon only), i18n strings.
-4. Panel bodies are **lazy**: front end fetches `GET /secret-drawer/v1/panels/{id}`
+4. Cubby bodies are **lazy**: front end fetches `GET /secret-drawer/v1/cubbies/{id}`
    on first tab activation (and on tab re-activation for the Notifications
-   panel), so page-load cost is ~2KB of static assets.
+   cubby), so page-load cost is ~2KB of static assets.
 5. REST routes registered on `rest_api_init`, each with capability +
    permission callbacks.
 
@@ -230,7 +230,7 @@ ergonomics — it can ship its own build.)
 
 | Store | Key | Type | Scope |
 |-------|-----|------|-------|
-| option | `secret_drawer` | `{ version, roles[], trigger_word, panels[], width, position }` | site |
+| option | `secret_drawer` | `{ version, roles[], trigger_word, cubbies[], width, position }` | site |
 | usermeta | `secret_drawer_notes` | text | per-user |
 | usermeta | `secret_drawer_links` | array of `{label, url}` | per-user |
 | usermeta | `secret_drawer_discovered` | timestamp | per-user |
@@ -251,25 +251,25 @@ Namespace: `secret-drawer/v1` (nonce via `wp_rest`, standard cookie auth).
 
 | Method | Route | Capability | Purpose |
 |--------|-------|------------|---------|
-| GET | `/panels/{id}` | per-panel | Rendered HTML + optional data for one panel |
+| GET | `/cubbies/{id}` | per-cubby | Rendered HTML + optional data for one cubby |
 | POST | `/notes` | `read` + access gate | Save notes (returns sanitized copy) |
 | GET/POST/DELETE | `/links(/…)` | `read` + access gate | Quick-links CRUD |
 | GET | `/notifications` | `update_core` | Aggregated counts + deep links |
 | GET/POST | `/settings` | `manage_options` | Settings read/write (REST, not a settings page) |
 
-All responses: `rest_ensure_response`, sanitized server-side. Panel HTML is
-rendered server-side (panels are PHP classes with a `render()` returning
-HTML) — keeps panel authors in familiar WP territory; JS just injects it.
+All responses: `rest_ensure_response`, sanitized server-side. Cubby HTML is
+rendered server-side (cubbies are PHP classes with a `render()` returning
+HTML) — keeps cubby authors in familiar WP territory; JS just injects it.
 
 ---
 
-## 7. Panel API (extensibility)
+## 7. Cubby API (extensibility)
 
 ### PHP
 
 ```php
-add_filter( 'secret_drawer_panels', function ( array $panels ): array {
-    $panels['todo'] = [
+add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
+    $cubbies['todo'] = [
         'id'         => 'todo',
         'title'      => __( 'Team Todo', 'secret-drawer' ),
         'icon'       => 'dashicons-list-view',
@@ -278,24 +278,24 @@ add_filter( 'secret_drawer_panels', function ( array $panels ): array {
         'render'     => fn() => '<p>…</p>',           // HTML string
         'refresh_on' => 'open',                       // or 'never'
     ];
-    return $panels;
+    return $cubbies;
 } );
 ```
 
-Registry sorts by `order`, drops panels whose capability the user lacks,
+Registry sorts by `order`, drops cubbies whose capability the user lacks,
 and hands the surviving set (id/title/icon only) to the front end.
 
-### JS events (for panel authors)
+### JS events (for cubby authors)
 
 Dispatched on `document`: `secret-drawer:open`, `secret-drawer:close`,
-`secret-drawer:panel:shown` (detail: `{ id }`).
+`secret-drawer:cubby:shown` (detail: `{ id }`).
 A tiny `window.SecretDrawer` global exposes `open()`, `close()`, `toggle()`,
-`showPanel( id )` — enough for other plugins to drive the drawer without
+`showCubby( id )` — enough for other plugins to drive the drawer without
 touching its internals.
 
 ---
 
-## 8. v1 built-in panels
+## 8. v1 built-in cubbies
 
 ### 8.1 Notes (per-user scratchpad)
 - A `TextareaControl` with debounced autosave (800ms) and a "Saved ✓"
@@ -337,7 +337,7 @@ touching its internals.
 
 - [ ] `defined( 'ABSPATH' ) || exit;` at top of every PHP file
 - [ ] Access gate enforced in: asset enqueue, every REST route, settings save
-- [ ] Per-panel capability checks
+- [ ] Per-cubby capability checks
 - [ ] All output escaped (`esc_html`, `esc_attr`, `esc_url`, `wp_kses`)
 - [ ] All input sanitized; settings whitelisted against known keys
 - [ ] REST nonce (`wp_rest`) + cookie auth only — no plaintext secrets
@@ -356,29 +356,29 @@ bootstrap skeleton, `uninstall.php`, `.gitignore`, README stub.
 
 ### M1 — Drawer shell (the magic moment)
 Enqueue on all admin pages; typed secret word (`hellodolly`) trigger;
-slide-out panel with header/tabs/close; ESC + focus handling;
+slide-out cubby with header/tabs/close; ESC + focus handling;
 `localStorage` state; first-unlock toast + 🤫 confetti.
 **AC:** works on every admin page (plugins, editor, custom post types);
 no layout shift; no dependencies.
 
 ### M2 — Access control + settings
 Role gate (server-enforced), **in-drawer settings view** (accessed only via
-the drawer's gear icon: roles multi-select, trigger word field, panel
+the drawer's gear icon: roles multi-select, trigger word field, cubby
 enable/reorder, width, position right/bottom), REST `/settings`.
 **AC:** a subscriber receives zero plugin JS; settings persist and
 sanitize correctly; no admin-menu page exists at all.
 
-### M3 — Built-in panels
+### M3 — Built-in cubbies
 Notes (autosave), Quick Links (CRUD), Notifications (counts + deep links +
 transient cache + tab badge).
 **AC:** data survives cache clears and logins on another device; counts
 match the real screens.
 
-### M4 — Panel API + docs
-Registry + `secret_drawer_panels` filter, JS events + `window.SecretDrawer`,
-example third-party panel in README, `SECRET-DRAWER-EXTENDING.md` or
+### M4 — Cubby API + docs
+Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,
+example third-party cubby in README, `SECRET-DRAWER-EXTENDING.md` or
 README section.
-**AC:** drop-in example panel renders as a fourth tab.
+**AC:** drop-in example cubby renders as a fourth tab.
 
 ### M5 — Polish & release-readiness
 i18n (all strings, `wp-pot` extraction), RTL audit, small-screen audit,
@@ -413,20 +413,20 @@ deliberately keeps the door open:
 - **Plugin header ships release-grade from day one:** proper
   `Plugin Name/Description/Text Domain`, `Requires WP/PHP`, license field.
   Zero rework if you publish.
-- **No registration/key checks ever** — every trigger, setting, and panel
+- **No registration/key checks ever** — every trigger, setting, and cubby
   works out of the box; nothing "phones home." (Also just correct for a
   secret feature: it shouldn't leak its own existence.)
 - **wp.org-clean repo layout:** `readme.txt` added at M5; `languages/` dir
   present; no dev clutter (`node_modules` etc.) in tagged exports; all
   strings i18n-ready so a future translation community isn't locked out.
 - **Extensibility filter is public API** — documented, versioned, and not
-  renamed casually; third-party panels only make a future listing stronger.
+  renamed casually; third-party cubbies only make a future listing stronger.
 
 The trade-off accepted: we *do* carry i18n/readme/polish costs earlier than
 a purely personal plugin would. That cost is small (vanilla JS, no build
 step) and keeps both futures open.
 1. ~~Distribution~~ → **resolved:** personal-now, wp.org-ready (see §13).
-2. **Shared content:** should any panel be site-wide rather than
+2. **Shared content:** should any cubby be site-wide rather than
    per-user? (e.g. "Site notes" every admin sees — candidate for v2, or
    v1 if you want it day one.)
 3. **Rich notes:** plain textarea for v1 acceptable, or markdown-ish
