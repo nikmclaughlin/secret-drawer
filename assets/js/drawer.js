@@ -156,6 +156,10 @@
 	 * ------------------------------------------------------------------ */
 
 	function fetchCubby( id, mount ) {
+		// Leaving the notes tab: flush any debounced save before the DOM goes away.
+		if ( 'notes' !== id && pendingNotes ) {
+			flushPendingNotes();
+		}
 		mount.innerHTML = '';
 		var loading = document.createElement( 'p' );
 		loading.className = 'sd-muted';
@@ -196,6 +200,23 @@
 		// Notifications is display-only.
 	}
 
+	/** Hide/show the links add-form (it starts hidden behind a New link button). */
+	function setLinksFormVisible( mount, visible ) {
+		var form = mount.querySelector( '.sd-links-add' );
+		var newBtn = mount.querySelector( '[data-sd-link-new]' );
+		var err = mount.querySelector( '.sd-link-error' );
+		if ( form ) {
+			form.hidden = ! visible;
+		}
+		if ( newBtn ) {
+			newBtn.hidden = visible;
+		}
+		if ( err && ! visible ) {
+			err.hidden = true;
+			err.textContent = '';
+		}
+	}
+
 	/**
 	 * Notes: debounced autosave (1.2s). The in-flight state lives on the
 	 * module so a tab switch can flush the pending save immediately.
@@ -203,12 +224,13 @@
 	var pendingNotes = null;
 
 	function saveNotesNow() {
-		if ( ! pendingNotes ) {
+		// Resolve the field at call time (delegation model — no stored refs).
+		var field = document.querySelector( '[data-sd-notes]' );
+		var indicator = document.querySelector( '.sd-save-ind' );
+		if ( ! field ) {
 			return;
 		}
-		var field = pendingNotes.field;
-		var indicator = pendingNotes.indicator;
-		if ( pendingNotes.timer ) {
+		if ( pendingNotes && pendingNotes.timer ) {
 			window.clearTimeout( pendingNotes.timer );
 			pendingNotes.timer = null;
 		}
@@ -219,7 +241,10 @@
 				'Content-Type': 'application/json',
 				'X-WP-Nonce': config.nonce
 			},
-			body: JSON.stringify( { content: field.value } )
+			body: JSON.stringify( {
+				id: field.dataset.sdNote,
+				content: field.value
+			} )
 		} ).then( function ( res ) {
 			if ( ! res.ok ) {
 				throw new Error( 'status ' + res.status );
@@ -241,23 +266,110 @@
 	}
 
 	function wireNotes( mount ) {
-		var field = mount.querySelector( '[data-sd-notes]' );
-		var indicator = mount.querySelector( '.sd-save-ind' );
-		if ( ! field ) {
+		// One delegated listener per cubby (mount survives re-fetches);
+		// targets are resolved at event time, never cached.
+		if ( ! mount.dataset.sdNotesWired ) {
+			mount.dataset.sdNotesWired = '1';
+
+			mount.addEventListener( 'input', function ( event ) {
+				var field = event.target.closest( '[data-sd-notes]' );
+				if ( ! field ) {
+					return;
+				}
+				pendingNotes = { timer: null };
+				var indicator = field.closest( '.sd-note' ).querySelector( '.sd-save-ind' );
+				if ( indicator ) {
+					indicator.textContent = 'Saving…';
+				}
+				if ( pendingNotes.timer ) {
+					window.clearTimeout( pendingNotes.timer );
+				}
+				pendingNotes.timer = window.setTimeout( saveNotesNow, 1200 );
+			} );
+
+			mount.addEventListener( 'click', function ( event ) {
+				var newBtn = event.target.closest( '[data-sd-note-new]' );
+				var delBtn = event.target.closest( '[data-sd-note-delete]' );
+
+				if ( newBtn ) {
+					window.fetch( config.restRoot + '/cubbies/notes/create', {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'X-WP-Nonce': config.nonce }
+					} ).then( function ( res ) {
+						if ( ! res.ok ) {
+							throw new Error( 'status ' + res.status );
+						}
+						return res.json();
+					} ).then( function ( data ) {
+						renderNotes( mount, [ { id: data.id, content: '' } ], true );
+					} ).catch( function () {} );
+				}
+
+				if ( delBtn ) {
+					var card = delBtn.closest( '.sd-note' );
+					var id = card ? card.querySelector( '[data-sd-notes]' ) : null;
+					if ( ! id ) {
+						return;
+					}
+					window.fetch( config.restRoot + '/cubbies/notes/delete', {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-WP-Nonce': config.nonce
+						},
+						body: JSON.stringify( { id: id.dataset.sdNote } )
+					} ).then( function ( res ) {
+						if ( ! res.ok ) {
+							throw new Error( 'status ' + res.status );
+						}
+						return card.remove();
+					} ).then( function () {} ).catch( function () {} );
+				}
+			} );
+		}
+	}
+
+	/** Insert a note card (used after create; list re-fetches on next visit). */
+	function renderNotes( mount, notes, focusNew ) {
+		var list = mount.querySelector( '.sd-notes-list' );
+		if ( ! list ) {
+			fetchCubby( 'notes', mount );
 			return;
 		}
-
-		pendingNotes = { field: field, indicator: indicator, timer: null };
-
-		field.addEventListener( 'input', function () {
-			if ( pendingNotes.timer ) {
-				window.clearTimeout( pendingNotes.timer );
+		notes.forEach( function ( note ) {
+			var li = document.createElement( 'li' );
+			li.className = 'sd-note';
+			var ta = document.createElement( 'textarea' );
+			ta.className = 'sd-notes';
+			ta.setAttribute( 'data-sd-note', note.id );
+			ta.setAttribute( 'rows', '4' );
+			ta.value = note.content || '';
+			var meta = document.createElement( 'p' );
+			meta.className = 'sd-note-meta';
+			var ind = document.createElement( 'span' );
+			ind.className = 'sd-save-ind';
+			ind.setAttribute( 'aria-live', 'polite' );
+			var del = document.createElement( 'button' );
+			del.type = 'button';
+			del.className = 'sd-icon-button';
+			del.setAttribute( 'data-sd-note-delete', note.id );
+			del.setAttribute( 'aria-label', 'Delete note' );
+			del.textContent = '✕';
+			meta.appendChild( ind );
+			meta.appendChild( del );
+			li.appendChild( ta );
+			li.appendChild( meta );
+			list.appendChild( li );
+			if ( focusNew ) {
+				ta.focus();
 			}
-			if ( indicator ) {
-				indicator.textContent = 'Saving…';
-			}
-			pendingNotes.timer = window.setTimeout( saveNotesNow, 1200 );
 		} );
+		var empty = mount.querySelector( '.sd-muted' );
+		if ( empty && empty.textContent.indexOf( 'No notes yet' ) !== -1 ) {
+			empty.remove();
+		}
 	}
 
 	/**
@@ -266,6 +378,11 @@
 	 * client just displays what it returns).
 	 */
 	function wireLinks( mount ) {
+		// Wire once per cubby instance; listeners on the mount outlive re-fetches.
+		if ( mount.dataset.sdLinksWired ) {
+			return;
+		}
+		mount.dataset.sdLinksWired = '1';
 		var editing = null; // null | { index: int }
 
 		function labelInput() {
@@ -350,12 +467,20 @@
 			var delBtn = event.target.closest( '[data-sd-link-delete]' );
 			var editBtn = event.target.closest( '[data-sd-link-edit]' );
 			var cancelBtn = event.target.closest( '[data-sd-link-cancel]' );
+			var newBtn = event.target.closest( '[data-sd-link-new]' );
+
+			if ( newBtn ) {
+				setLinksFormVisible( mount, true );
+				labelInput().focus();
+				return;
+			}
 
 			if ( cancelBtn && editing ) {
 				setMode( 'reset' );
 				labelInput().value = '';
 				urlInputEl().value = '';
 				clearError();
+				setLinksFormVisible( mount, false );
 				return;
 			}
 

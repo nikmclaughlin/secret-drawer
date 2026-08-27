@@ -37,7 +37,7 @@ class Secret_Drawer_Rest_Cubbies {
 			)
 		);
 
-		// Notes: save.
+		// Notes: save one note by id.
 		register_rest_route(
 			'secret-drawer/v1',
 			'/cubbies/notes/save',
@@ -46,10 +46,44 @@ class Secret_Drawer_Rest_Cubbies {
 				'callback'            => array( $this, 'save_notes' ),
 				'permission_callback' => array( $this, 'can_access' ),
 				'args'                => array(
+					'id' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
 					'content' => array(
 						'type'              => 'string',
 						'required'          => true,
 						'sanitize_callback' => 'sanitize_textarea_field',
+					),
+				),
+			)
+		);
+
+		// Notes: create.
+		register_rest_route(
+			'secret-drawer/v1',
+			'/cubbies/notes/create',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'create_note' ),
+				'permission_callback' => array( $this, 'can_access' ),
+			)
+		);
+
+		// Notes: delete by id.
+		register_rest_route(
+			'secret-drawer/v1',
+			'/cubbies/notes/delete',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'delete_note' ),
+				'permission_callback' => array( $this, 'can_access' ),
+				'args'                => array(
+					'id' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 				),
 			)
@@ -180,8 +214,33 @@ class Secret_Drawer_Rest_Cubbies {
 	 * @return WP_REST_Response
 	 */
 	public function save_notes( $request ) {
-		Secret_Drawer_Cubby_Notes::save( (string) $request->get_param( 'content' ) );
-		return rest_ensure_response( array( 'saved' => true ) );
+		$ok = Secret_Drawer_Cubby_Notes::save(
+			(string) $request->get_param( 'id' ),
+			(string) $request->get_param( 'content' )
+		);
+		return rest_ensure_response( array( 'saved' => (bool) $ok ) );
+	}
+
+	/**
+	 * POST /cubbies/notes/create
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function create_note( $request ) {
+		$id = Secret_Drawer_Cubby_Notes::create( '' );
+		return rest_ensure_response( array( 'id' => $id ) );
+	}
+
+	/**
+	 * POST /cubbies/notes/delete
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function delete_note( $request ) {
+		$ok = Secret_Drawer_Cubby_Notes::delete( (string) $request->get_param( 'id' ) );
+		return rest_ensure_response( array( 'deleted' => (bool) $ok ) );
 	}
 
 	/**
