@@ -226,7 +226,7 @@
 
 	function saveNotesNow() {
 		// Resolve the field at call time (delegation model — no stored refs).
-		var field = document.querySelector( '[data-sd-notes]' );
+		var field = document.querySelector( '[data-sd-note]' );
 		var indicator = document.querySelector( '.sd-save-ind' );
 		if ( ! field ) {
 			return;
@@ -273,7 +273,7 @@
 			mount.dataset.sdNotesWired = '1';
 
 			mount.addEventListener( 'input', function ( event ) {
-				var field = event.target.closest( '[data-sd-notes]' );
+				var field = event.target.closest( '[data-sd-note]' );
 				if ( ! field ) {
 					return;
 				}
@@ -312,6 +312,15 @@
 						// Open the new note straight into the editor.
 						openNoteEditor( mount, { id: data.id, content: '' }, true );
 					} ).catch( function () {} );
+				}
+
+				// Open an existing note: hide the list, load its content.
+				if ( openBtn ) {
+					openNoteEditor( mount, {
+						id: openBtn.getAttribute( 'data-sd-note-open' ),
+						content: openBtn.getAttribute( 'data-content' ) || ''
+					}, false );
+					return;
 				}
 
 				if ( delBtn ) {
@@ -402,6 +411,18 @@
 		var newBtn = mount.querySelector( '[data-sd-note-new]' );
 		// Flush any debounced save before leaving the textarea.
 		flushPendingNotes();
+		// Sync the list row with what was just edited (stored copy + preview),
+		// so re-opening the note doesn't resurrect stale content.
+		var field = editor ? editor.querySelector( '[data-sd-note]' ) : null;
+		if ( field && field.dataset.sdNote && list ) {
+			var row = list.querySelector( '[data-note-id="' + field.dataset.sdNote + '"]' );
+			var open = row ? row.querySelector( '[data-sd-note-open]' ) : null;
+			if ( open ) {
+				var text = field.value.replace( /\s+/g, ' ' ).trim();
+				open.setAttribute( 'data-content', field.value );
+				open.textContent = text ? ( text.length > 60 ? text.slice( 0, 60 ) + '…' : text ) : '(empty note)';
+			}
+		}
 		openNoteEditorId = null;
 		if ( editor ) {
 			editor.hidden = true;
