@@ -152,7 +152,12 @@ class Secret_Drawer_Assets {
 	}
 
 	/**
-	 * Enabled cubby metadata for the tab strip. M4: this moves to
+	 * Enabled cubby metadata for the tab strip (id/title/icon shape fixed
+	 * at M1; the catalog source moves to the registry at M4).
+	 *
+	 * @param array $settings Settings.
+	 * @return array[]
+	 */
 	private static function cubbies_for_user( $settings ) {
 		$out = array();
 		foreach ( (array) $settings['enabled_cubbies'] as $id ) {
