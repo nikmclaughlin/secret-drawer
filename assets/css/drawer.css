@@ -1,0 +1,274 @@
+/**
+ * Secret Drawer — drawer chrome.
+ *
+ * Modern wp-admin look: wp-components does the heavy lifting inside;
+ * this file owns the overlay layout, position, and motion.
+ * Logical properties throughout so RTL mirrors for free.
+ */
+
+:root {
+	--sd-width: 320px;
+	--sd-bg: #fff;
+	--sd-border: #e0e0e0;
+	--sd-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+	--sd-accent: var(--wp-admin-theme-color, #3858e9);
+	--sd-z: 999999;
+}
+
+#secret-drawer-root {
+	all: initial;
+}
+
+.sd-drawer {
+	position: fixed;
+	z-index: var(--sd-z);
+	background: var(--sd-bg);
+	border-inline-start: 1px solid var(--sd-border);
+	box-shadow: var(--sd-shadow);
+	display: flex;
+	flex-direction: column;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	font-size: 13px;
+	color: #1e1e1e;
+	visibility: hidden;
+	transition: transform 0.2s ease-out, visibility 0s linear 0.2s;
+}
+
+.sd-drawer.is-open {
+	visibility: visible;
+	transition: transform 0.2s ease-out;
+}
+
+/* Right (default) */
+.sd-drawer--right {
+	top: 0;
+	bottom: 0;
+	inset-inline-end: 0;
+	transform: translateX(calc(100% + 40px));
+}
+
+[dir="rtl"] .sd-drawer--right {
+	transform: translateX(calc(-100% - 40px));
+}
+
+.sd-drawer--right.is-open,
+[dir="rtl"] .sd-drawer--right.is-open {
+	transform: translateX(0);
+}
+
+/* Bottom sheet */
+.sd-drawer--bottom {
+	inset-inline: 0;
+	bottom: 0;
+	height: min(70vh, 560px);
+	border-inline-start: none;
+	border-top: 1px solid var(--sd-border);
+	transform: translateY(calc(100% + 40px));
+}
+
+.sd-drawer--bottom.is-open {
+	transform: translateY(0);
+}
+
+/* Small screens: full width */
+@media (max-width: 480px) {
+	.sd-drawer--right {
+		width: 100vw !important;
+	}
+}
+
+/* Header */
+.sd-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--sd-border);
+	flex: 0 0 auto;
+}
+
+.sd-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.sd-header-actions {
+	display: flex;
+	gap: 2px;
+}
+
+.sd-icon-button {
+	appearance: none;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+	padding: 5px 7px;
+	color: #50575e;
+}
+
+.sd-icon-button:hover:not(:disabled) {
+	color: var(--sd-accent);
+	background: #f0f0f1;
+}
+
+.sd-icon-button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.sd-icon-button:focus-visible,
+.sd-tab:focus-visible {
+	outline: 2px solid var(--sd-accent);
+	outline-offset: 1px;
+}
+
+/* Tabs */
+.sd-tabs {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.sd-tabs .components-tab-panel__tabs {
+	border-bottom: 1px solid var(--sd-border);
+	padding: 0 8px;
+}
+
+.sd-tab {
+	font-size: 13px;
+}
+
+/* Body */
+.sd-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 14px;
+}
+
+.sd-cubby-body p {
+	margin: 0 0 10px;
+}
+
+.sd-muted {
+	color: #757575;
+}
+
+.sd-empty {
+	margin-top: 8px;
+}
+
+/* Footer wink */
+.sd-footer {
+	flex: 0 0 auto;
+	text-align: center;
+	padding: 6px 0 8px;
+	border-top: 1px solid var(--sd-border);
+	font-size: 12px;
+	opacity: 0.6;
+	user-select: none;
+}
+
+/* Ghost flash: confirms the trigger word matched */
+.sd-ghost {
+	position: fixed;
+	z-index: calc(var(--sd-z) + 1);
+	inset-inline: 0;
+	bottom: 18vh;
+	text-align: center;
+	font-size: 18px;
+	letter-spacing: 0.04em;
+	color: var(--sd-accent);
+	opacity: 0;
+	animation: sd-ghost 0.35s ease-out forwards;
+	pointer-events: none;
+}
+
+@keyframes sd-ghost {
+	0% {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	35% {
+		opacity: 0.9;
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+/* First-run toast */
+.sd-toast {
+	position: fixed;
+	z-index: calc(var(--sd-z) + 1);
+	inset-inline-start: 50%;
+	transform: translateX(-50%);
+	bottom: 32px;
+	background: #1e1e1e;
+	color: #fff;
+	font-size: 13px;
+	padding: 10px 18px;
+	border-radius: 6px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+	animation: sd-toast-in 0.25s ease-out;
+}
+
+@keyframes sd-toast-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, 8px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+}
+
+/* Confetti field */
+.sd-confetti {
+	position: fixed;
+	z-index: calc(var(--sd-z) + 1);
+	inset: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+.sd-confetti span {
+	position: absolute;
+	top: -30px;
+	animation: sd-fall linear forwards;
+}
+
+@keyframes sd-fall {
+	to {
+		transform: translateY(105vh) rotate(240deg);
+		opacity: 0.9;
+	}
+}
+
+/* Reduced motion: everything arrives instantly, confetti skipped in JS */
+@media (prefers-reduced-motion: reduce) {
+	.sd-drawer,
+	.sd-ghost,
+	.sd-toast {
+		transition: none;
+		animation: none;
+		opacity: 1;
+	}
+
+	.sd-drawer {
+		transform: none;
+	}
+
+	.sd-drawer:not(.is-open) {
+		display: none;
+	}
+}

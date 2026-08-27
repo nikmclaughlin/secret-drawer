@@ -37,9 +37,11 @@ final class Secret_Drawer_Plugin {
 	 * Wire up hooks. Milestones add their own hook registrations here.
 	 */
 	private function __construct() {
+		require_once SECRET_DRAWER_DIR . 'includes/class-assets.php';
+		new Secret_Drawer_Assets();
+
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
-		// M1: assets (class-assets.php) — enqueue + localize config.
 		// M2: settings (class-settings.php) + role gate.
 		// M3: built-in cubbies.
 		// M4: cubby registry (class-cubby-registry.php) + REST (class-rest.php).
