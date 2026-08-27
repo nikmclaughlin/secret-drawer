@@ -291,6 +291,10 @@
 	align-items: center;
 }
 
+.sd-links-add[hidden] {
+	display: none;
+}
+
 .sd-links-add input[type="text"] {
 	grid-column: 1 / -1;
 	width: 100%;

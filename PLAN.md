@@ -362,11 +362,12 @@ touching its internals.
 
 ## 8. v1 built-in cubbies
 
-### 8.1 Notes (per-user scratchpad)
-- A `TextareaControl` with debounced autosave (800ms) and a "Saved ✓"
-  affordance (`Snackbar` or inline text).
-- Stored in usermeta. No formatting in v1; Markdown-lite is backlog.
-- Seed content on first run: a winking hint about the plugin.
+### 8.1 Notes (a list of notes, per user)
+- "＋ New note" button appends a card; each card is a textarea with
+  per-note debounced autosave (1.2s) and its own "Saved ✓" indicator.
+- Each note: `{ id, content }` in usermeta `secret_drawer_cubby_notes`;
+  per-card delete. The M3 single-string format migrates on read.
+- No formatting in v1; Markdown-lite is backlog.
 
 ### 8.2 Quick Links (per-user jump list)
 - User-managed list: `TextControl` label + URL, add/reorder/delete via
