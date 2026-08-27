@@ -389,7 +389,10 @@
 				children: function ( tab ) {
 					// h() returns a plain element object, not a DOM node —
 					// populate via ref, which receives the real node after mount.
+					// key forces a NEW node per tab: without it React reuses one
+					// div for every tab and the loaded-guard blocks the refetch.
 					return h( 'div', {
+						key: tab.name,
 						className: 'sd-cubby-body',
 						'data-cubby': tab.name,
 						ref: function ( node ) {
