@@ -6,6 +6,37 @@
 
 ---
 
+## 0. For the implementing session (read this first)
+
+**Where things stand:** this plan is complete and reviewed; no
+implementation code exists yet. Start at milestone **M0** (§11) and work
+sequentially — M1–M3 each depend on the previous milestone's REST routes,
+registry, and gate. **Do not re-litigate closed decisions**; everything in
+§3 is decided, and each closed decision says why (rejected alternatives are
+documented in place, e.g. the WP-logo trigger, DataViews, a settings page).
+
+**Non-negotiables, in priority order:**
+1. Server is the source of truth for access (gate the enqueue; re-check on
+   every REST route; subscribers never receive any plugin JS).
+2. No admin-menu settings page, ever — settings live only inside the drawer
+   (gear icon) and persist via the REST `/settings` route.
+3. `wp-components` is the house style; no build step, no npm, no JSX.
+4. Naming conventions (§5) are baked in at M0 and are public API once
+   released: `secret_drawer_settings`, `secret_drawer_cubby_{id}`,
+   `secret_drawer_cubbies` filter, `secret-drawer/v1` REST namespace.
+5. wp.org-ready from day one: clean headers, i18n-ready strings, no
+   registration/key/telemetry checks ever. Slug `secret-drawer` is
+   (as of planning) unclaimed; `readme.txt` and tagging land at M5.
+
+**Working agreements:** vanilla single-file `drawer.js` mounting
+`wp-components` via `wp.element.createElement`; cubby bodies lazy-fetch
+from REST after unlock; small commits per milestone with ACs as the
+definition of done. If anything in this file is ambiguous, fix the plan
+in the same commit as the code — the plan is the source of truth and
+should never drift.
+
+---
+
 ## 1. Concept
 
 **One-liner:** Every wp-admin page hides a secret interaction (typing the
@@ -390,8 +421,8 @@ bootstrap skeleton, `uninstall.php`, `.gitignore`, README stub.
 
 ### M1 — Drawer shell (the magic moment)
 Enqueue on all admin pages; typed secret word (`hellodolly`) trigger;
-slide-out cubby with header/tabs/close; ESC + focus handling;
-`localStorage` state; first-unlock toast + 🤫 confetti.
+slide-out **drawer** (header/tabs/close; tabs = cubbies); ESC + focus
+handling; `localStorage` state; first-unlock toast + 🤫 confetti.
 **AC:** works on every admin page (plugins, editor, custom post types);
 no layout shift; no dependencies.
 
