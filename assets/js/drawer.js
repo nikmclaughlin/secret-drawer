@@ -1125,7 +1125,10 @@
 				: { width: config.width + 'px' }
 		},
 			h( 'header', { className: 'sd-header' },
-				h( 'h2', { className: 'sd-title' }, config.strings.title ),
+				h( 'h2', { className: 'sd-title' },
+					h( 'span', { className: 'sd-logo', 'aria-hidden': 'true' }, '🤫' ),
+					config.strings.title
+				),
 				h( 'div', { className: 'sd-header-actions' },
 					h( 'button', {
 						className: 'sd-icon-button',

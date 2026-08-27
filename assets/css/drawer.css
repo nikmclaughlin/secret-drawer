@@ -95,6 +95,13 @@
 	line-height: 1.2;
 }
 
+/* Hushface logo: a friendly emoji mark ahead of the drawer title. */
+.sd-logo {
+	margin-inline-end: 6px;
+	/* Keep the mark from being announced or selected as text. */
+	user-select: none;
+}
+
 .sd-header-actions {
 	display: flex;
 	gap: 2px;
