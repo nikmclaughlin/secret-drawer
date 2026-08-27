@@ -321,6 +321,47 @@
 		root.render( h( Drawer ) );
 	}
 
+	/** Dark pill, bottom center — reused for "Saved ✓". */
+	function snackbar( text ) {
+		var el = document.createElement( 'div' );
+		el.className = 'sd-toast';
+		el.setAttribute( 'role', 'status' );
+		el.textContent = text;
+		document.body.appendChild( el );
+		window.setTimeout( function () {
+			el.remove();
+		}, 2500 );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Applying saved settings — config is rebuilt in place, no reload.
+	 * ------------------------------------------------------------------ */
+
+	function applySettings( s ) {
+		if ( ! s || typeof s !== 'object' ) {
+			return;
+		}
+		config.trigger = String( s.trigger_word || config.trigger );
+		config.width = parseInt( s.width, 10 ) || config.width;
+		config.position = ( 'bottom' === s.position ) ? 'bottom' : 'right';
+		config.roles = ( s.roles || config.roles || [] ).slice();
+
+		// Rebuild tab list from the sanitized enabled list + catalog.
+		// (Server already validated ids against the catalog — trust it.)
+		config.cubbies = ( s.enabled_cubbies || [] ).map( function ( id ) {
+			var meta = ( config.catalog && config.catalog[ id ] ) || {};
+			return {
+				id: id,
+				title: meta.title || id,
+				icon: meta.icon || 'dashicons-marker'
+			};
+		} );
+
+		// A saved trigger word may have been lowercased/trimmed by the server.
+		state.firstRun = false;
+		lsSet( 'discovered', '1' );
+	}
+
 	/* ------------------------------------------------------------------ *
 	 * In-drawer settings view
 	 * ------------------------------------------------------------------ */
@@ -329,7 +370,7 @@
 		var draft = state.draft || {};
 		var S = config.strings;
 
-		var position = 'bottom' === config.position ? 'bottom' : 'right';
+		var position = 'bottom' === ( draft.position || config.position ) ? 'bottom' : 'right';
 		// The settings view replaces the drawer body inside the same shell;
 		// it is always shown open (you got here via an open drawer).
 		var className = 'sd-drawer sd-drawer--' + position + ' is-open';
@@ -357,9 +398,15 @@
 				if ( ! res.ok ) {
 					throw new Error( String( res.status ) );
 				}
-				window.localStorage.removeItem( STORE_KEY + '.open' );
-				window.localStorage.removeItem( STORE_KEY + '.lastCubby' );
-				window.location.reload(); // Config is baked per page-load; apply on next load.
+				return res.json();
+			} ).then( function ( data ) {
+				// REST returns the sanitized settings — apply them live, no reload.
+				applySettings( data && data.settings ? data.settings : {} );
+				state.saving = false;
+				state.view = 'drawer';
+				state.draft = null;
+				render();
+				snackbar( config.strings.saved );
 			} ).catch( function () {
 				state.saving = false;
 				var bar = document.querySelector( '.sd-save-status' );
@@ -375,7 +422,7 @@
 			role: 'complementary',
 			'aria-label': S.settings,
 			'aria-hidden': 'false',
-			style: { width: position === 'bottom' ? undefined : config.width + 'px' }
+			style: { width: position === 'bottom' ? undefined : ( parseInt( draft.width, 10 ) || config.width ) + 'px' }
 		},
 			h( 'header', { className: 'sd-header' },
 				h( 'button', {
@@ -416,13 +463,13 @@
 					label: S.secretWord,
 					help: S.secretHelp,
 					value: draft.trigger_word,
-					onChange: function ( v ) { draft.trigger_word = v; }
+					onChange: function ( v ) { draft.trigger_word = v; render(); }
 				} ) : h( 'label', { className: 'sd-field' },
 					S.secretWord,
 					h( 'input', {
 						type: 'text',
 						value: draft.trigger_word,
-						onChange: function ( e ) { draft.trigger_word = e.target.value; }
+						onChange: function ( e ) { draft.trigger_word = e.target.value; render(); }
 					} )
 				),
 
@@ -435,12 +482,12 @@
 							{ value: 'right', label: 'Right →' },
 							{ value: 'bottom', label: 'Bottom ↑' }
 						],
-						onChange: function ( v ) { draft.position = v; }
+						onChange: function ( v ) { draft.position = v; render(); }
 					} ) : h( 'label', { className: 'sd-field' },
 						S.position,
 						h( 'select', {
 							value: draft.position,
-							onChange: function ( e ) { draft.position = e.target.value; }
+							onChange: function ( e ) { draft.position = e.target.value; render(); }
 						},
 							h( 'option', { value: 'right' }, 'Right →' ),
 							h( 'option', { value: 'bottom' }, 'Bottom ↑' )
@@ -450,7 +497,7 @@
 						type: 'number',
 						label: S.width,
 						value: draft.width,
-						onChange: function ( v ) { draft.width = v; }
+						onChange: function ( v ) { draft.width = v; render(); }
 					} ) : null
 				),
 

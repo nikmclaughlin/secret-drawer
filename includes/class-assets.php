@@ -100,7 +100,7 @@ class Secret_Drawer_Assets {
 				'settings'    => __( 'Drawer settings', 'secret-drawer' ),
 				'back'        => __( 'Back', 'secret-drawer' ),
 				'save'        => __( 'Save changes', 'secret-drawer' ),
-				'saved'       => __( 'Saved — reloading…', 'secret-drawer' ),
+				'saved'       => __( 'Saved ✓', 'secret-drawer' ),
 				'saveError'   => __( 'Could not save settings.', 'secret-drawer' ),
 				'roles'       => __( 'Who can find it', 'secret-drawer' ),
 				'secretWord'  => __( 'Secret word', 'secret-drawer' ),
