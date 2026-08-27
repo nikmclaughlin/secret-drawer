@@ -112,6 +112,7 @@ class Secret_Drawer_Assets {
 				'inDrawer'    => __( 'In your drawer', 'secret-drawer' ),
 				'library'     => __( 'Cubby library', 'secret-drawer' ),
 				'toast'       => __( '🔓 You found the Secret Drawer.', 'secret-drawer' ),
+				'ghost'       => __( "It's a secret!", 'secret-drawer' ),
 				'emptyCubby'  => __( 'Nothing here yet.', 'secret-drawer' ),
 				'emptyNotes'  => __( 'No notes yet. Toss one in.', 'secret-drawer' ),
 				'loadError'   => __( 'Could not load this cubby.', 'secret-drawer' ),

@@ -97,7 +97,7 @@
 	function ghostFlash() {
 		var el = document.createElement( 'div' );
 		el.className = 'sd-ghost ' + ( isBottomMode() ? 'sd-ghost--bottom' : 'sd-ghost--right' );
-		el.textContent = config.strings.title;
+		el.textContent = config.strings.ghost || 'Secret Drawer';
 		el.setAttribute( 'aria-hidden', 'true' );
 		document.body.appendChild( el );
 		window.setTimeout( function () {
