@@ -286,10 +286,10 @@
 							state.view = 'settings';
 							state.draft = {
 								roles: ( config.roles || [] ).slice(),
-								trigger: config.trigger,
+								trigger_word: config.trigger,
 								position: config.position,
 								width: config.width,
-								enabled: ( config.cubbies || [] ).map( function ( c ) { return c.id; } )
+								enabled_cubbies: ( config.cubbies || [] ).map( function ( c ) { return c.id; } )
 							};
 							render();
 						}
@@ -335,9 +335,9 @@
 		var className = 'sd-drawer sd-drawer--' + position + ' is-open';
 
 		function toggleCubby( id, on ) {
-			draft.enabled = on
-				? draft.enabled.concat( [ id ] )
-				: draft.enabled.filter( function ( x ) { return x !== id; } );
+			draft.enabled_cubbies = on
+				? draft.enabled_cubbies.concat( [ id ] )
+				: draft.enabled_cubbies.filter( function ( x ) { return x !== id; } );
 			render();
 		}
 
@@ -415,14 +415,14 @@
 				TextControl ? h( TextControl, {
 					label: S.secretWord,
 					help: S.secretHelp,
-					value: draft.trigger,
-					onChange: function ( v ) { draft.trigger = v; }
+					value: draft.trigger_word,
+					onChange: function ( v ) { draft.trigger_word = v; }
 				} ) : h( 'label', { className: 'sd-field' },
 					S.secretWord,
 					h( 'input', {
 						type: 'text',
-						value: draft.trigger,
-						onChange: function ( e ) { draft.trigger = e.target.value; }
+						value: draft.trigger_word,
+						onChange: function ( e ) { draft.trigger_word = e.target.value; }
 					} )
 				),
 
@@ -456,7 +456,7 @@
 
 				// Cubby library: in-drawer (toggles) + available to add.
 				h( 'h3', null, S.inDrawer ),
-				( draft.enabled.length ? draft.enabled.map( function ( id ) {
+				( draft.enabled_cubbies.length ? draft.enabled_cubbies.map( function ( id ) {
 					var meta = config.catalog[ id ] || {};
 					return h( 'div', { key: id, className: 'sd-row' },
 						h( 'span', { className: 'sd-row-title' }, meta.title || id ),
@@ -471,7 +471,7 @@
 
 				h( 'h3', null, S.library ),
 				Object.keys( config.catalog ).filter( function ( id ) {
-					return draft.enabled.indexOf( id ) === -1;
+					return draft.enabled_cubbies.indexOf( id ) === -1;
 				} ).map( function ( id ) {
 					var meta = config.catalog[ id ];
 					return h( 'div', { key: id, className: 'sd-row' },
