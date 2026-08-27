@@ -41,13 +41,12 @@ class Secret_Drawer_Cubby_Links {
 				<?php endif; ?>
 			</ul>
 			<p class="sd-links-new">
-				<button type="button" class="button button-small" data-sd-link-new><?php esc_html_e( '＋ New link', 'secret-drawer' ); ?></button>
+				<button type="button" class="button button-small" data-sd-link-new data-label-new="<?php esc_attr_e( '＋ New link', 'secret-drawer' ); ?>" data-label-cancel="<?php esc_attr_e( 'Cancel', 'secret-drawer' ); ?>"><?php esc_html_e( '＋ New link', 'secret-drawer' ); ?></button>
 			</p>
 			<div class="sd-links-add" hidden>
 				<input type="text" class="sd-link-label" placeholder="<?php esc_attr_e( 'Label', 'secret-drawer' ); ?>" aria-label="<?php esc_attr_e( 'Link label', 'secret-drawer' ); ?>">
 				<input type="text" class="sd-link-url" placeholder="<?php esc_attr_e( '/wp-admin/… or full URL', 'secret-drawer' ); ?>" aria-label="<?php esc_attr_e( 'Link URL', 'secret-drawer' ); ?>">
 				<button type="button" class="button button-small" data-sd-link-add><?php esc_html_e( 'Add', 'secret-drawer' ); ?></button>
-				<button type="button" class="button-link" data-sd-link-cancel hidden><?php esc_html_e( 'Cancel', 'secret-drawer' ); ?></button>
 			</div>
 			<p class="sd-link-error" role="alert" hidden></p>
 		</div>

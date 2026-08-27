@@ -209,7 +209,7 @@
 			form.hidden = ! visible;
 		}
 		if ( newBtn ) {
-			newBtn.hidden = visible;
+			newBtn.textContent = visible ? ( newBtn.dataset.labelCancel || 'Cancel' ) : ( newBtn.dataset.labelNew || '＋ New link' );
 		}
 		if ( err && ! visible ) {
 			err.hidden = true;
@@ -397,6 +397,10 @@
 			return mount.querySelector( '.sd-link-error' );
 		}
 
+		function formEl() {
+			return mount.querySelector( '.sd-links-add' );
+		}
+
 		function showError( message ) {
 			var el = errEl();
 			if ( el ) {
@@ -470,6 +474,14 @@
 			var newBtn = event.target.closest( '[data-sd-link-new]' );
 
 			if ( newBtn ) {
+				if ( formEl() && ! formEl().hidden ) {
+					// Already open → acts as Cancel: close, discard, no save.
+					setLinksFormVisible( mount, false );
+					setMode( 'reset' );
+					labelInput().value = '';
+					urlInputEl().value = '';
+					return;
+				}
 				setLinksFormVisible( mount, true );
 				labelInput().focus();
 				return;
