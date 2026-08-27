@@ -1,9 +1,9 @@
 /**
  * Secret Drawer front end.
  *
- * Plain JS, no build step. Mounts a wp-components drawer UI via
- * wp.element.createElement. Cubby bodies are lazy: each tab fetches
- * GET /secret-drawer/v1/cubbies/{id} when activated.
+ * Plain JS, no build step. Mounts the launcher drawer via
+ * wp.element.createElement; cubbies pop out as attached sidebars
+ * (panels), each lazily fetching GET /secret-drawer/v1/cubbies/{id}.
  */
 ( function () {
 	'use strict';
@@ -16,7 +16,6 @@
 	var h = window.wp.element.createElement;
 	var createRoot = window.wp.element.createRoot;
 	var C = window.wp.components || {};
-	var TabPanel = C.TabPanel;
 	var ToggleControl = C.ToggleControl;
 	var SelectControl = C.SelectControl;
 	var TextControl = C.TextControl;
@@ -29,6 +28,7 @@
 		view: 'drawer', // 'drawer' | 'settings'
 		saving: false,
 		draft: null, // Working copy of settings in the settings view.
+		panels: [], // Open pop-out panels, launcher-first: { el, parent, cubbyId }.
 		firstRun: ! config.discovered && ! window.localStorage.getItem( STORE_KEY + '.discovered' )
 	};
 
@@ -155,11 +155,7 @@
 	 * Cubby bodies: lazy fetch per tab
 	 * ------------------------------------------------------------------ */
 
-	function fetchCubby( id, mount ) {
-		// Leaving the notes tab: flush any debounced save before the DOM goes away.
-		if ( 'notes' !== id && pendingNotes ) {
-			flushPendingNotes();
-		}
+	function fetchCubby( id, mount, panelEl ) {
 		mount.innerHTML = '';
 		var loading = document.createElement( 'p' );
 		loading.className = 'sd-muted';
@@ -176,7 +172,7 @@
 			return res.json();
 		} ).then( function ( data ) {
 			mount.innerHTML = data && data.html ? String( data.html ) : '';
-			wireCubby( id, mount );
+			wireCubby( id, mount, panelEl );
 		} ).catch( function () {
 			// Routes for a cubby may not exist yet (M3); show a quiet placeholder.
 			mount.innerHTML = '';
@@ -191,9 +187,9 @@
 	 * Cubby interactions (event delegation — survives body re-renders)
 	 * ------------------------------------------------------------------ */
 
-	function wireCubby( id, mount ) {
+	function wireCubby( id, mount, panelEl ) {
 		if ( 'notes' === id ) {
-			wireNotes( mount );
+			wireNotes( mount, panelEl );
 		} else if ( 'links' === id ) {
 			wireLinks( mount );
 		}
@@ -218,226 +214,201 @@
 	}
 
 	/**
-	 * Notes: debounced autosave (1.2s). The in-flight state lives on the
-	 * module so a tab switch can flush the pending save immediately.
+	 * Notes: each note editor is its own pop-out panel with a private
+	 * autosave closure — no shared pending state, so two open editors
+	 * never bleed into each other.
 	 */
-	var pendingNotes = null;
-	var openNoteEditorId = null;
+	var NOTE_DEBOUNCE = 1200;
 
-	function saveNotesNow() {
-		// Resolve the field at call time (delegation model — no stored refs).
-		var field = document.querySelector( '[data-sd-note]' );
-		var indicator = document.querySelector( '.sd-save-ind' );
-		if ( ! field ) {
+	/** Keep the list row in sync with edited content (stored copy + preview). */
+	function syncNoteRow( listMount, id, content ) {
+		if ( ! listMount ) {
 			return;
 		}
-		if ( pendingNotes && pendingNotes.timer ) {
-			window.clearTimeout( pendingNotes.timer );
-			pendingNotes.timer = null;
+		var row = listMount.querySelector( '[data-note-id="' + id + '"]' );
+		var open = row ? row.querySelector( '[data-sd-note-open]' ) : null;
+		if ( ! open ) {
+			return;
 		}
-		window.fetch( config.restRoot + '/cubbies/notes/save', {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-WP-Nonce': config.nonce
-			},
-			body: JSON.stringify( {
-				id: field.dataset.sdNote,
-				content: field.value
-			} )
-		} ).then( function ( res ) {
-			if ( ! res.ok ) {
-				throw new Error( 'status ' + res.status );
+		var text = String( content ).replace( /\s+/g, ' ' ).trim();
+		open.setAttribute( 'data-content', content );
+		open.textContent = text ? ( text.length > 60 ? text.slice( 0, 60 ) + '…' : text ) : '(empty note)';
+	}
+
+	/** Open a note editor as its own panel, attached to the notes list panel. */
+	function openEditorPanel( note, parentEl, listMount, focusEditor ) {
+		var layer = panelLayer();
+		if ( ! layer ) {
+			return;
+		}
+		// One editor per note: re-focus an already-open editor, never duplicate.
+		var existing = state.panels.filter( function ( p ) {
+			return p.editor && p.noteId === note.id;
+		} )[ 0 ];
+		if ( existing ) {
+			var openTa = existing.el.querySelector( 'textarea' );
+			if ( openTa ) {
+				openTa.focus();
 			}
-			if ( indicator && indicator.isConnected ) {
-				indicator.textContent = 'Saved ✓';
+			return;
+		}
+
+		var el = document.createElement( 'aside' );
+		el.className = 'sd-panel sd-panel--editor';
+		el.setAttribute( 'role', 'complementary' );
+		el.setAttribute( 'aria-label', 'Note' );
+		el.innerHTML =
+			'<header class="sd-header"><h2 class="sd-title">Note</h2>' +
+			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
+			'<div class="sd-body sd-editor-body">' +
+			'<textarea class="sd-notes" rows="8"></textarea>' +
+			'<p class="sd-note-meta"><span class="sd-save-ind" aria-live="polite"></span></p>' +
+			'</div>';
+		layer.appendChild( el );
+
+		var record = { el: el, parent: parentEl, cubbyId: 'notes', editor: true, noteId: note.id, dirty: false, timer: null };
+		state.panels.push( record );
+		restackPanels();
+
+		var field = el.querySelector( 'textarea' );
+		var indicator = el.querySelector( '.sd-save-ind' );
+		field.value = note.content || '';
+
+		function saveEditor() {
+			record.dirty = false;
+			window.fetch( config.restRoot + '/cubbies/notes/save', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': config.nonce
+				},
+				body: JSON.stringify( { id: record.noteId, content: field.value } )
+			} ).then( function ( res ) {
+				if ( ! res.ok ) {
+					throw new Error( 'status ' + res.status );
+				}
+				if ( indicator.isConnected ) {
+					indicator.textContent = 'Saved ✓';
+				}
+				syncNoteRow( listMount, record.noteId, field.value );
+			} ).catch( function () {
+				record.dirty = true;
+				if ( indicator.isConnected ) {
+					indicator.textContent = 'Save failed — will retry on next edit.';
+				}
+			} );
+		}
+
+		field.addEventListener( 'input', function () {
+			record.dirty = true;
+			if ( indicator.isConnected ) {
+				indicator.textContent = 'Saving…';
 			}
-		} ).catch( function () {
-			if ( indicator && indicator.isConnected ) {
-				indicator.textContent = 'Save failed — will retry on next edit.';
+			if ( record.timer ) {
+				window.clearTimeout( record.timer );
+			}
+			record.timer = window.setTimeout( saveEditor, NOTE_DEBOUNCE );
+		} );
+
+		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+			popPanel( el ); // popPanel flushes via the panel's flush closure first.
+		} );
+
+		// Flush closure used by popPanel/closeAllPanels (ESC, drawer close).
+		record.flush = function () {
+			if ( record.timer ) {
+				window.clearTimeout( record.timer );
+				record.timer = null;
+			}
+			if ( record.dirty ) {
+				saveEditor();
+			}
+		};
+
+		if ( focusEditor ) {
+			field.focus();
+		}
+	}
+
+	function wireNotes( mount, panelEl ) {
+		// One delegated listener per cubby mount (panels included);
+		// targets are resolved at event time, never cached.
+		if ( mount.dataset.sdNotesWired ) {
+			return;
+		}
+		mount.dataset.sdNotesWired = '1';
+		// The notes list panel this editor panels will attach to.
+		var listPanel = panelEl || null;
+
+		mount.addEventListener( 'click', function ( event ) {
+			var newBtn = event.target.closest( '[data-sd-note-new]' );
+			var openBtn = event.target.closest( '[data-sd-note-open]' );
+			var delBtn = event.target.closest( '[data-sd-note-delete]' );
+
+			// ＋ New note: create, then pop the editor out of this panel.
+			if ( newBtn ) {
+				window.fetch( config.restRoot + '/cubbies/notes/create', {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'X-WP-Nonce': config.nonce }
+				} ).then( function ( res ) {
+					if ( ! res.ok ) {
+						throw new Error( 'status ' + res.status );
+					}
+					return res.json();
+				} ).then( function ( data ) {
+					openEditorPanel( { id: data.id, content: '' }, listPanel, mount, true );
+				} ).catch( function () {} );
+				return;
+			}
+
+			// Clicking a note row: the editor pops out as its own sidebar.
+			if ( openBtn ) {
+				openEditorPanel( {
+					id: openBtn.getAttribute( 'data-sd-note-open' ),
+					content: openBtn.getAttribute( 'data-content' ) || ''
+				}, listPanel, mount, false );
+				return;
+			}
+
+			// ✕ on a row: delete server-side; close that note's editor if open.
+			if ( delBtn ) {
+				var row = delBtn.closest( '.sd-note-row' );
+				var id = row ? row.getAttribute( 'data-note-id' ) : null;
+				if ( ! id ) {
+					return;
+				}
+				window.fetch( config.restRoot + '/cubbies/notes/delete', {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': config.nonce
+					},
+					body: JSON.stringify( { id: id } )
+				} ).then( function ( res ) {
+					if ( ! res.ok ) {
+						throw new Error( 'status ' + res.status );
+					}
+					// If this note's editor is open, cascade-close it.
+					var editorPanel = state.panels.filter( function ( p ) {
+						return p.editor && p.noteId === id;
+					} )[ 0 ];
+					if ( editorPanel ) {
+						popPanel( editorPanel.el );
+					}
+					return row.remove();
+				} ).then( function () {
+					if ( ! mount.querySelector( '.sd-note-row' ) ) {
+						var list = mount.querySelector( '.sd-notes-list' );
+						if ( list ) {
+							list.insertAdjacentHTML( 'beforebegin', '<p class="sd-muted">' + ( config.strings.emptyNotes || 'No notes yet.' ) + '</p>' );
+						}
+					}
+				} ).catch( function () {} );
 			}
 		} );
-	}
-
-	function flushPendingNotes() {
-		if ( pendingNotes ) {
-			saveNotesNow();
-		}
-	}
-
-	function wireNotes( mount ) {
-		// One delegated listener per cubby (mount survives re-fetches);
-		// targets are resolved at event time, never cached.
-		if ( ! mount.dataset.sdNotesWired ) {
-			mount.dataset.sdNotesWired = '1';
-
-			mount.addEventListener( 'input', function ( event ) {
-				var field = event.target.closest( '[data-sd-note]' );
-				if ( ! field ) {
-					return;
-				}
-				pendingNotes = { timer: null };
-				var indicator = field.closest( '.sd-note-editor' ).querySelector( '.sd-save-ind' );
-				if ( indicator ) {
-					indicator.textContent = 'Saving…';
-				}
-				if ( pendingNotes.timer ) {
-					window.clearTimeout( pendingNotes.timer );
-				}
-				pendingNotes.timer = window.setTimeout( saveNotesNow, 1200 );
-			} );
-
-			mount.addEventListener( 'click', function ( event ) {
-				var newBtn = event.target.closest( '[data-sd-note-new]' );
-				var openBtn = event.target.closest( '[data-sd-note-open]' );
-				var delBtn = event.target.closest( '[data-sd-note-delete]' );
-
-				// The New note button doubles as "← All notes" while a note is open.
-				if ( newBtn && editorOpen() ) {
-					closeNoteEditor( mount );
-					return;
-				}
-				if ( newBtn ) {
-					window.fetch( config.restRoot + '/cubbies/notes/create', {
-						method: 'POST',
-						credentials: 'same-origin',
-						headers: { 'X-WP-Nonce': config.nonce }
-					} ).then( function ( res ) {
-						if ( ! res.ok ) {
-							throw new Error( 'status ' + res.status );
-						}
-						return res.json();
-					} ).then( function ( data ) {
-						// Open the new note straight into the editor.
-						openNoteEditor( mount, { id: data.id, content: '' }, true );
-					} ).catch( function () {} );
-				}
-
-				// Open an existing note: hide the list, load its content.
-				if ( openBtn ) {
-					openNoteEditor( mount, {
-						id: openBtn.getAttribute( 'data-sd-note-open' ),
-						content: openBtn.getAttribute( 'data-content' ) || ''
-					}, false );
-					return;
-				}
-
-				if ( delBtn ) {
-					var row = delBtn.closest( '.sd-note-row' );
-					var id = row ? row.getAttribute( 'data-note-id' ) : null;
-					if ( ! id ) {
-						return;
-					}
-					var wasOpen = openNoteEditorId && openNoteEditorId === id;
-					window.fetch( config.restRoot + '/cubbies/notes/delete', {
-						method: 'POST',
-						credentials: 'same-origin',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce': config.nonce
-						},
-						body: JSON.stringify( { id: id } )
-					} ).then( function ( res ) {
-						if ( ! res.ok ) {
-							throw new Error( 'status ' + res.status );
-						}
-						if ( wasOpen ) {
-							openNoteEditorId = null;
-						}
-						return row.remove();
-					} ).then( function () {
-						// Deleted the note currently being edited → back to list.
-						if ( editorOpen() ) {
-							closeNoteEditor( mount );
-						}
-						if ( ! mount.querySelector( '.sd-note-row' ) ) {
-							var list = mount.querySelector( '.sd-notes-list' );
-							if ( list ) {
-								list.insertAdjacentHTML( 'beforebegin', '<p class="sd-muted">' + ( config.strings.emptyNotes || 'No notes yet.' ) + '</p>' );
-							}
-						}
-					} ).catch( function () {} );
-				}
-			} );
-		}
-	}
-
-	/** Insert a note card (used after create; list re-fetches on next visit). */
-	function openNoteEditor( mount, note, focusEditor ) {
-		var editor = mount.querySelector( '.sd-note-editor' );
-		var list = mount.querySelector( '.sd-notes-list' );
-		var empty = mount.querySelector( '.sd-muted' );
-		var newBtn = mount.querySelector( '[data-sd-note-new]' );
-		if ( ! editor ) {
-			return;
-		}
-		openNoteEditorId = note.id;
-
-		// Hide the list, show the editor.
-		if ( list ) {
-			list.hidden = true;
-		}
-		if ( empty ) {
-			empty.hidden = true;
-		}
-		editor.hidden = false;
-		editor.innerHTML = '';
-		var ta = document.createElement( 'textarea' );
-		ta.className = 'sd-notes';
-		ta.setAttribute( 'data-sd-note', note.id );
-		ta.setAttribute( 'rows', '8' );
-		ta.value = note.content || '';
-		var meta = document.createElement( 'p' );
-		meta.className = 'sd-note-meta';
-		var ind = document.createElement( 'span' );
-		ind.className = 'sd-save-ind';
-		ind.setAttribute( 'aria-live', 'polite' );
-		meta.appendChild( ind );
-		editor.appendChild( ta );
-		editor.appendChild( meta );
-		if ( focusEditor ) {
-			ta.focus();
-		}
-		// Button flips to the back affordance.
-		if ( newBtn ) {
-			newBtn.textContent = newBtn.dataset.labelAll || '← All notes';
-		}
-	}
-
-	function closeNoteEditor( mount ) {
-		var editor = mount.querySelector( '.sd-note-editor' );
-		var list = mount.querySelector( '.sd-notes-list' );
-		var newBtn = mount.querySelector( '[data-sd-note-new]' );
-		// Flush any debounced save before leaving the textarea.
-		flushPendingNotes();
-		// Sync the list row with what was just edited (stored copy + preview),
-		// so re-opening the note doesn't resurrect stale content.
-		var field = editor ? editor.querySelector( '[data-sd-note]' ) : null;
-		if ( field && field.dataset.sdNote && list ) {
-			var row = list.querySelector( '[data-note-id="' + field.dataset.sdNote + '"]' );
-			var open = row ? row.querySelector( '[data-sd-note-open]' ) : null;
-			if ( open ) {
-				var text = field.value.replace( /\s+/g, ' ' ).trim();
-				open.setAttribute( 'data-content', field.value );
-				open.textContent = text ? ( text.length > 60 ? text.slice( 0, 60 ) + '…' : text ) : '(empty note)';
-			}
-		}
-		openNoteEditorId = null;
-		if ( editor ) {
-			editor.hidden = true;
-			editor.innerHTML = '';
-		}
-		if ( list ) {
-			list.hidden = false;
-		}
-		if ( newBtn ) {
-			newBtn.textContent = newBtn.dataset.labelNew || '＋ New note';
-		}
-	}
-
-	function editorOpen() {
-		return null !== openNoteEditorId;
 	}
 
 	/**
@@ -671,6 +642,7 @@
 		}
 		state.open = false;
 		state.view = 'drawer'; // ESC from settings lands back on the drawer, not a half-open settings view.
+		closeAllPanels();
 		lsSet( 'open', false );
 		render();
 		onClose();
@@ -690,8 +662,131 @@
 	function onKeydownGlobal( event ) {
 		if ( 'Escape' === event.key && state.open ) {
 			event.stopPropagation();
-			close();
+			// Cascade: ESC pops the top panel first, then the launcher.
+			if ( state.panels.length ) {
+				popPanel();
+			} else {
+				close();
+			}
 		}
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Pop-out panels: drawers attached to the drawer.
+	 *
+	 * The launcher stays open; each cubby opens as its own sidebar stacked
+	 * outboard of its parent. Panels are plain DOM (outside React) so the
+	 * wire-once delegation model works per-mount, unchanged.
+	 * ------------------------------------------------------------------ */
+
+	/** Horizontal gap between stacked panels; grows the cascade outward. */
+	var PANEL_STEP = 340; // Panel width (320) + 20 breathing room.
+	var PANEL_WIDTH = 320;
+
+	function panelLayer() {
+		return document.getElementById( 'secret-drawer-panels' );
+	}
+
+	function isRTL() {
+		return 'rtl' === document.documentElement.dir;
+	}
+
+	/** Viewport-rect of the panel anchor (launcher, or bottom-sheet right edge). */
+	function launcherRect() {
+		var drawer = document.querySelector( '.sd-drawer' );
+		if ( drawer ) {
+			return drawer.getBoundingClientRect();
+		}
+		// No launcher in the DOM (edge case): synthesize an anchor.
+		return isRTL()
+			? { left: 0, right: 0 }
+			: { left: window.innerWidth, right: window.innerWidth };
+	}
+
+	/** Where a panel chained to a parent rect should sit (viewport left). */
+	function panelLeftFor( parentRect ) {
+		if ( isRTL() ) {
+			// Launcher hugs the left edge; the cascade grows rightward.
+			return Math.min( parentRect.right + 20, window.innerWidth - PANEL_WIDTH - 8 );
+		}
+		// Launcher hugs the right edge; the cascade grows leftward.
+		return Math.max( 8, parentRect.left - PANEL_STEP );
+	}
+
+	/** Open a cubby panel attached to a parent (launcher or another panel). */
+	function openPanel( cubbyId, parent ) {
+		if ( ! state.open ) {
+			open();
+		}
+		var layer = panelLayer();
+		if ( ! layer ) {
+			return;
+		}
+		var parentRect = parent ? parent.getBoundingClientRect() : launcherRect();
+		var el = document.createElement( 'aside' );
+		el.className = 'sd-panel';
+		el.setAttribute( 'role', 'complementary' );
+		el.setAttribute( 'aria-label', cubbyTitle( cubbyId ) );
+		el.style.left = panelLeftFor( parentRect ) + 'px';
+		el.innerHTML =
+			'<header class="sd-header"><h2 class="sd-title"></h2>' +
+			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
+			'<div class="sd-body"></div>';
+		layer.appendChild( el );
+		el.querySelector( '.sd-title' ).textContent = cubbyTitle( cubbyId );
+		state.panels.push( { el: el, parent: parent, cubbyId: cubbyId } );
+		restackPanels();
+		fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
+		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+			popPanel( el );
+		} );
+	}
+
+	/** Close the topmost panel (or a specific one, cascade-closing children). */
+	function popPanel( target ) {
+		var idx = target ? state.panels.findIndex( function ( p ) { return p.el === target; } ) : state.panels.length - 1;
+		if ( idx === -1 ) {
+			return;
+		}
+		// Close everything above it too (children of the panel going away).
+		while ( state.panels.length > idx ) {
+			var panel = state.panels.pop();
+			flushPanelNotes( panel );
+			panel.el.remove();
+		}
+		restackPanels();
+	}
+
+	/** Close every panel (launcher closing / drawer close). */
+	function closeAllPanels() {
+		while ( state.panels.length ) {
+			var panel = state.panels.pop();
+			flushPanelNotes( panel );
+			panel.el.remove();
+		}
+	}
+
+	/** Flush a panel's pending notes save before its DOM goes away. */
+	function flushPanelNotes( panel ) {
+		if ( panel && typeof panel.flush === 'function' ) {
+			panel.flush();
+		}
+	}
+
+	/** Re-anchor the stack: each panel sits outboard of its parent. */
+	function restackPanels() {
+		var rect = launcherRect();
+		state.panels.forEach( function ( panel ) {
+			var left = panelLeftFor( rect );
+			panel.el.style.left = left + 'px';
+			// Track positions arithmetically — mid-animation rects lie.
+			rect = { left: left, right: left + PANEL_WIDTH };
+		} );
+	}
+
+	function cubbyTitle( id ) {
+		var meta = ( config.cubbies || [] ).filter( function ( c ) { return c.id === id; } )[ 0 ];
+		return meta ? meta.title : id;
 	}
 
 	function Drawer() {
@@ -702,43 +797,25 @@
 		var position = 'bottom' === config.position ? 'bottom' : 'right';
 		var className = 'sd-drawer sd-drawer--' + position + ( state.open ? ' is-open' : '' );
 
-		var tabs = ( config.cubbies || [] ).map( function ( cubby ) {
-			return { name: cubby.id, title: cubby.title, className: 'sd-tab' };
+		// Launcher body: a grid of cubby cards. Clicking pops the cubby
+		// out as its own sidebar; the launcher itself stays put.
+		var cards = ( config.cubbies || [] ).map( function ( cubby ) {
+			return h( 'button', {
+				key: cubby.id,
+				type: 'button',
+				className: 'sd-card',
+				onClick: function () {
+					openPanel( cubby.id, null );
+				}
+			},
+				h( 'span', { className: 'sd-card-icon dashicons ' + ( cubby.icon || 'dashicons-marker' ), 'aria-hidden': 'true' } ),
+				h( 'span', { className: 'sd-card-title' }, cubby.title )
+			);
 		} );
 
-		var body;
-		if ( ! config.cubbies || ! config.cubbies.length ) {
-			body = h( 'p', { className: 'sd-muted sd-empty' }, 'This drawer is empty. Add something from the library.' );
-		} else if ( TabPanel ) {
-			body = h( TabPanel, {
-				className: 'sd-tabs',
-				tabs: tabs,
-				initialTabName: lsGet( 'lastCubby' ) || ( config.cubbies[ 0 ] && config.cubbies[ 0 ].id ),
-				onSelect: function ( name ) {
-					flushPendingNotes();
-					lsSet( 'lastCubby', name );
-				},
-				children: function ( tab ) {
-					// h() returns a plain element object, not a DOM node —
-					// populate via ref, which receives the real node after mount.
-					// key forces a NEW node per tab: without it React reuses one
-					// div for every tab and the loaded-guard blocks the refetch.
-					return h( 'div', {
-						key: tab.name,
-						className: 'sd-cubby-body',
-						'data-cubby': tab.name,
-						ref: function ( node ) {
-							if ( node && ! node.dataset.sdLoaded ) {
-								node.dataset.sdLoaded = '1';
-								fetchCubby( tab.name, node );
-							}
-						}
-					} );
-				}
-			} );
-		} else {
-			body = h( 'p', { className: 'sd-muted' }, config.strings.emptyCubby );
-		}
+		var body = h( 'div', { className: 'sd-cubby-grid' },
+			cards.length ? cards : h( 'p', { className: 'sd-muted sd-empty' }, 'This drawer is empty. Add something from the library.' )
+		);
 
 		return h( 'aside', {
 			className: className,
@@ -791,6 +868,13 @@
 			container = document.createElement( 'div' );
 			container.id = 'secret-drawer-root';
 			document.body.appendChild( container );
+
+			// Pop-out panels live in their own layer (outside React) so the
+			// delegation model works per-mount and panels survive re-renders.
+			var layer = document.createElement( 'div' );
+			layer.id = 'secret-drawer-panels';
+			document.body.appendChild( layer );
+
 			root = createRoot( container );
 		}
 		root.render( h( Drawer ) );
@@ -813,6 +897,10 @@
 	 * ------------------------------------------------------------------ */
 
 	function applySettings( s ) {
+		if ( ! s || typeof s !== 'object' ) {
+			return;
+		}
+		// Cubby list may have changed: collapse any open panels first.
 		if ( ! s || typeof s !== 'object' ) {
 			return;
 		}
@@ -1029,20 +1117,21 @@
 		open: open,
 		close: close,
 		toggle: toggle,
+		// Open the drawer (if needed) and pop the cubby out immediately.
 		showCubby: function ( id ) {
 			open();
-			lsSet( 'lastCubby', id );
-			render();
+			openPanel( id, null );
 		}
 	};
 
 	// A fresh login (logout/login) starts with the drawer closed: the
 	// server stamps every login with its own session token in the config.
 	// Page loads *within* one session keep the drawer open, as before.
+	// (Panel state is deliberately not persisted: a fresh open starts
+	// at the launcher — the cascade is a choice, not a surprise.)
 	if ( config.session ) {
 		if ( lsGet( 'session' ) !== config.session ) {
 			lsSet( 'open', false );
-			lsSet( 'lastCubby', '' );
 		}
 		lsSet( 'session', config.session );
 	}

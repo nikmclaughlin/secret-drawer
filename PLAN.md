@@ -363,10 +363,14 @@ touching its internals.
 ## 8. v1 built-in cubbies
 
 ### 8.1 Notes (a list of notes, per user)
-- "＋ New note" button appends a card; each card is a textarea with
-  per-note debounced autosave (1.2s) and its own "Saved ✓" indicator.
+- The notes cubby panel shows the list; clicking a note (or ＋ New note)
+  pops the editor out as its own sidebar panel attached to the list panel.
+  Each editor has debounced autosave (1.2s) with a private closure and a
+  "Saved ✓" indicator; closing a panel flushes first.
 - Each note: `{ id, content }` in usermeta `secret_drawer_cubby_notes`;
-  per-card delete. The M3 single-string format migrates on read.
+  delete from the list row (✕, hover-revealed); deleting a note whose
+  editor is open cascade-closes the editor panel. The M3 single-string
+  format migrates on read.
 - No formatting in v1; Markdown-lite is backlog.
 
 ### 8.2 Quick Links (per-user jump list)
@@ -431,6 +435,7 @@ touching its internals.
 | CP1 | M1 | Type `hellodolly` on several admin screens (Posts list, plugin editor, a custom post type, Network admin if present). Drawer slides from right; ESC closes; ✕ closes; reopening restores last tab. Tab typing into a post does *not* trigger. First-unlock toast + 🤫 confetti, once only. Settings gear present but disabled. | Feels good, no layout breakage anywhere. |
 | CP2 | M2 | In a second browser profile logged in as a non-admin: typing `hellodolly` does nothing, no drawer markup, no plugin JS in page source. As admin: gear opens settings; changes persist across page loads; cubby removed via settings disappears from the tab strip. | Gate holds; settings survive reload. |
 | CP3 | M3 | Notes autosave + survive reload/other browser; links add/reorder/delete + open correctly; notifications counts match the real admin screens; removing & re-adding a cubby preserves its data. | Data is trustworthy; counts are truthful. |
+| CP3.5 | M3.5 | Launcher shows cubby cards; clicking a card pops the cubby out as a sidebar attached to the drawer; clicking a note pops the editor out as a sidebar of the cubby; ESC/✕ collapse one level at a time back to the launcher; closing the launcher closes everything; autosave still saves. | The cascade feels like the joke: drawers within drawers, all the way down. |
 | CP4 | M5 | Fresh-install smoke on a clean WP + 2025 theme; RTL flip; small window; keyboard-only run through open → tabs → close. | Ship it. |
 
 ⏸ markers in the milestone list below refer to these rows.
@@ -470,6 +475,21 @@ match the real screens; removing and re-adding a cubby from the library
 preserves its data.
 
 ⏸ **Checkpoint CP3 (after M3) — pause for human testing. The taste gate.**
+
+### M3.5 — Launcher cascade (drawers within drawers)
+The drawer stops being tabs and becomes the launcher: a grid of cubby cards
+(icon + title). Clicking a card pops the cubby out as its own sidebar,
+attached to the launcher's inline-end edge, offset so the stack reads as
+"drawers all the way down." Each pop-out is a full cubby mount — the same
+fetchCubby + wireNotes/wireLinks delegation, one listener set per panel —
+and list/detail cubbies cascade again: clicking a note in the notes panel
+pops the editor out as a sidebar of the notes panel. Panels close one at a
+time (✕ or ESC pops the top panel), closing the launcher closes everything.
+**AC:** cards render with icons; cubby panels cascade correctly; notes
+autosave still lands (per-panel pending state, no cross-panel bleed);
+ESC pops one level; closing the launcher flushes + closes all panels.
+
+⏸ **Checkpoint CP3.5 (after M3.5) — pause for human testing. The joke gate.**
 
 ### M4 — Cubby API + docs
 Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,

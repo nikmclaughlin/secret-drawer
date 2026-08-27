@@ -44,7 +44,6 @@ class Secret_Drawer_Cubby_Notes {
 					<?php endforeach; ?>
 				</ul>
 			<?php endif; ?>
-			<div class="sd-note-editor" hidden></div>
 		</div>
 		<?php
 		return (string) ob_get_clean();
