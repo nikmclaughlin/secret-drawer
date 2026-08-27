@@ -205,6 +205,7 @@
 			return;
 		}
 		state.open = false;
+		state.view = 'drawer'; // ESC from settings lands back on the drawer, not a half-open settings view.
 		lsSet( 'open', false );
 		render();
 		onClose();
@@ -328,6 +329,11 @@
 		var draft = state.draft || {};
 		var S = config.strings;
 
+		var position = 'bottom' === config.position ? 'bottom' : 'right';
+		// The settings view replaces the drawer body inside the same shell;
+		// it is always shown open (you got here via an open drawer).
+		var className = 'sd-drawer sd-drawer--' + position + ' is-open';
+
 		function toggleCubby( id, on ) {
 			draft.enabled = on
 				? draft.enabled.concat( [ id ] )
@@ -364,7 +370,13 @@
 			} );
 		}
 
-		return h( 'div', { className: 'sd-settings' },
+		return h( 'aside', {
+			className: className,
+			role: 'complementary',
+			'aria-label': S.settings,
+			'aria-hidden': 'false',
+			style: { width: position === 'bottom' ? undefined : config.width + 'px' }
+		},
 			h( 'header', { className: 'sd-header' },
 				h( 'button', {
 					className: 'sd-icon-button',
@@ -487,10 +499,6 @@
 			)
 		);
 	}
-
-	/* ------------------------------------------------------------------ *
-	 * Boot
-	 * ------------------------------------------------------------------ */
 
 	document.addEventListener( 'keydown', onKeydown, true );
 	document.addEventListener( 'keydown', onKeydownGlobal, true );
