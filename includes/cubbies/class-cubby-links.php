@@ -32,7 +32,10 @@ class Secret_Drawer_Cubby_Links {
 					<?php foreach ( $links as $i => $link ) : ?>
 						<li class="sd-row sd-link-row" data-index="<?php echo esc_attr( $i ); ?>">
 							<a href="<?php echo esc_url( $link['url'] ); ?>"><?php echo esc_html( $link['label'] ); ?></a>
-							<button type="button" class="sd-icon-button" data-sd-link-delete="<?php echo esc_attr( $i ); ?>" aria-label="<?php esc_attr_e( 'Remove link', 'secret-drawer' ); ?>">✕</button>
+							<span class="sd-row-actions">
+								<button type="button" class="sd-icon-button" data-sd-link-edit="<?php echo esc_attr( $i ); ?>" aria-label="<?php esc_attr_e( 'Edit link', 'secret-drawer' ); ?>">✎</button>
+								<button type="button" class="sd-icon-button" data-sd-link-delete="<?php echo esc_attr( $i ); ?>" aria-label="<?php esc_attr_e( 'Remove link', 'secret-drawer' ); ?>">✕</button>
+							</span>
 						</li>
 					<?php endforeach; ?>
 				<?php endif; ?>
@@ -41,7 +44,9 @@ class Secret_Drawer_Cubby_Links {
 				<input type="text" class="sd-link-label" placeholder="<?php esc_attr_e( 'Label', 'secret-drawer' ); ?>" aria-label="<?php esc_attr_e( 'Link label', 'secret-drawer' ); ?>">
 				<input type="text" class="sd-link-url" placeholder="<?php esc_attr_e( '/wp-admin/… or full URL', 'secret-drawer' ); ?>" aria-label="<?php esc_attr_e( 'Link URL', 'secret-drawer' ); ?>">
 				<button type="button" class="button button-small" data-sd-link-add><?php esc_html_e( 'Add', 'secret-drawer' ); ?></button>
+				<button type="button" class="button-link" data-sd-link-cancel hidden><?php esc_html_e( 'Cancel', 'secret-drawer' ); ?></button>
 			</div>
+			<p class="sd-link-error" role="alert" hidden></p>
 		</div>
 		<?php
 		return (string) ob_get_clean();
@@ -66,21 +71,59 @@ class Secret_Drawer_Cubby_Links {
 	}
 
 	/**
-	 * Add a link. Returns the updated list.
+	 * Add a link. Returns array( 'links' => list, 'error' => message|null ).
 	 *
 	 * @param string $label Label.
 	 * @param string $url   URL.
-	 * @return array[]
+	 * @return array
 	 */
 	public static function add( $label, $url ) {
 		$links = self::get_links();
 		$label = sanitize_text_field( $label );
 		$url   = self::normalize_url( $url );
-		if ( $label && $url && count( $links ) < 50 ) {
-			$links[] = array( 'label' => $label, 'url' => $url );
-			self::persist( $links );
+
+		if ( '' === $label ) {
+			return array( 'links' => $links, 'error' => __( 'A label is required.', 'secret-drawer' ) );
 		}
-		return $links;
+		if ( '' === $url ) {
+			return array( 'links' => $links, 'error' => __( 'That URL looks invalid — use an admin path like /edit.php or a full https:// URL.', 'secret-drawer' ) );
+		}
+		if ( count( $links ) >= 50 ) {
+			return array( 'links' => $links, 'error' => __( 'Fifty links is plenty for one drawer.', 'secret-drawer' ) );
+		}
+
+		$links[] = array( 'label' => $label, 'url' => $url );
+		self::persist( $links );
+		return array( 'links' => $links, 'error' => null );
+	}
+
+	/**
+	 * Update a link in place. Returns array( 'links' => list, 'error' => message|null ).
+	 *
+	 * @param int    $index Index.
+	 * @param string $label Label.
+	 * @param string $url   URL.
+	 * @return array
+	 */
+	public static function update( $index, $label, $url ) {
+		$links = self::get_links();
+		$index = (int) $index;
+		$label = sanitize_text_field( $label );
+		$url   = self::normalize_url( $url );
+
+		if ( ! isset( $links[ $index ] ) ) {
+			return array( 'links' => $links, 'error' => __( 'That link no longer exists.', 'secret-drawer' ) );
+		}
+		if ( '' === $label ) {
+			return array( 'links' => $links, 'error' => __( 'A label is required.', 'secret-drawer' ) );
+		}
+		if ( '' === $url ) {
+			return array( 'links' => $links, 'error' => __( 'That URL looks invalid — use an admin path like /edit.php or a full https:// URL.', 'secret-drawer' ) );
+		}
+
+		$links[ $index ] = array( 'label' => $label, 'url' => $url );
+		self::persist( $links );
+		return array( 'links' => $links, 'error' => null );
 	}
 
 	/**
@@ -109,18 +152,26 @@ class Secret_Drawer_Cubby_Links {
 	}
 
 	/**
-	 * Admin-relative paths become admin URLs; everything else must be http(s).
+	 * Admin-relative paths become admin URLs; anything pasted with a
+	 * wp-admin/ prefix is unwound to the path first, so the admin base
+	 * never doubles. Everything else must be a full http(s) URL.
 	 *
 	 * @param string $url Raw URL.
-	 * @return string
+	 * @return string Normalized URL, or '' if invalid.
 	 */
 	private static function normalize_url( $url ) {
 		$url = trim( (string) $url );
 		if ( '' === $url ) {
 			return '';
 		}
-		if ( '/' === $url[0] || 0 === stripos( $url, 'admin.php' ) || 0 === stripos( $url, 'edit.php' ) || 0 === stripos( $url, 'options-' ) || 0 === stripos( $url, 'tools.php' ) ) {
-			return admin_url( ltrim( $url, '/' ) );
+
+		// Path, optionally with a pasted admin base or full URL around it.
+		if ( '/' === $url[0] || preg_match( '#wp-admin/#i', $url ) ) {
+			$path = $url;
+			if ( preg_match( '#wp-admin/(.+)$#i', $path, $m ) ) {
+				$path = $m[1];
+			}
+			return admin_url( ltrim( $path, '/' ) );
 		}
 		if ( preg_match( '#^https?://#i', $url ) ) {
 			return esc_url_raw( $url );

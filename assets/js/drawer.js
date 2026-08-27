@@ -261,41 +261,141 @@
 	}
 
 	/**
-	 * Links: delegated add/remove; the API returns the fresh list, so the
-	 * body re-renders from a single source of truth.
+	 * Links: delegated add/edit/remove. Validation errors surface in the
+	 * form's role=alert slot (server is the validation authority; the
+	 * client just displays what it returns).
 	 */
 	function wireLinks( mount ) {
+		var editing = null; // null | { index: int }
+
+		function labelInput() {
+			return mount.querySelector( '.sd-link-label' );
+		}
+
+		function urlInputEl() {
+			return mount.querySelector( '.sd-link-url' );
+		}
+
+		function errEl() {
+			return mount.querySelector( '.sd-link-error' );
+		}
+
+		function showError( message ) {
+			var el = errEl();
+			if ( el ) {
+				el.textContent = message;
+				el.hidden = false;
+			}
+		}
+
+		function clearError() {
+			var el = errEl();
+			if ( el ) {
+				el.hidden = true;
+				el.textContent = '';
+			}
+		}
+
+		function rowLabel( row ) {
+			var a = row ? row.querySelector( 'a' ) : null;
+			return a ? a.textContent : '';
+		}
+
+		function rowUrl( row ) {
+			var a = row ? row.querySelector( 'a' ) : null;
+			return a ? a.getAttribute( 'href' ) : '';
+		}
+
+		function setMode( mode, index ) {
+			editing = 'edit' === mode ? { index: index } : null;
+			var addBtn = mount.querySelector( '[data-sd-link-add]' );
+			var cancelBtn = mount.querySelector( '[data-sd-link-cancel]' );
+			if ( addBtn ) {
+				addBtn.textContent = 'edit' === mode ? 'Update' : 'Add';
+			}
+			if ( cancelBtn ) {
+				cancelBtn.hidden = 'edit' !== mode;
+			}
+		}
+
+		function fetchLinks( action, payload, onOk ) {
+			window.fetch( config.restRoot + '/cubbies/links/' + action, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': config.nonce
+				},
+				body: JSON.stringify( payload )
+			} ).then( function ( res ) {
+				// Validation errors arrive as 400 + JSON { message, links }.
+				return res.json().then( function ( data ) {
+					if ( ! res.ok ) {
+						throw { handled: true, message: data && data.message ? data.message : 'Something went wrong.' };
+					}
+					return data;
+				} );
+			} ).then( function ( data ) {
+				renderLinks( mount, data.links || [] );
+				if ( onOk ) {
+					onOk( data );
+				}
+			} ).catch( function ( err ) {
+				showError( err && err.handled ? err.message : 'Connection failed — try again.' );
+			} );
+		}
+
 		mount.addEventListener( 'click', function ( event ) {
 			var addBtn = event.target.closest( '[data-sd-link-add]' );
 			var delBtn = event.target.closest( '[data-sd-link-delete]' );
+			var editBtn = event.target.closest( '[data-sd-link-edit]' );
+			var cancelBtn = event.target.closest( '[data-sd-link-cancel]' );
 
-			if ( addBtn ) {
-				var labelInput = mount.querySelector( '.sd-link-label' );
-				var urlInput = mount.querySelector( '.sd-link-url' );
-				if ( ! labelInput || ! urlInput ) {
+			if ( cancelBtn && editing ) {
+				setMode( 'reset' );
+				labelInput().value = '';
+				urlInputEl().value = '';
+				clearError();
+				return;
+			}
+
+			if ( editBtn ) {
+				var editRow = editBtn.closest( '.sd-link-row' );
+				var editIndex = editRow ? editRow.getAttribute( 'data-index' ) : null;
+				if ( null === editIndex ) {
 					return;
 				}
-				window.fetch( config.restRoot + '/cubbies/links/add', {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': config.nonce
-					},
-					body: JSON.stringify( {
-						label: labelInput.value,
-						url: urlInput.value
-					} )
-				} ).then( function ( res ) {
-					if ( ! res.ok ) {
-						throw new Error( 'status ' + res.status );
+				// Pre-fill the form and enter edit mode.
+				setMode( 'edit', parseInt( editIndex, 10 ) );
+				labelInput().value = rowLabel( editRow );
+				urlInputEl().value = rowUrl( editRow );
+				clearError();
+				urlInputEl().focus();
+				return;
+			}
+
+			if ( addBtn ) {
+				var label = labelInput();
+				var url = urlInputEl();
+				if ( ! label || ! url ) {
+					return;
+				}
+				var payload = {
+					label: label.value,
+					url: url.value
+				};
+				if ( editing ) {
+					payload.index = editing.index;
+				}
+				fetchLinks( editing ? 'update' : 'add', payload, function () {
+					if ( editing ) {
+						setMode( 'reset' );
 					}
-					return res.json();
-				} ).then( function ( data ) {
-					renderLinks( mount, data.links || [] );
-					labelInput.value = '';
-					urlInput.value = '';
-				} ).catch( function () {} );
+					label.value = '';
+					url.value = '';
+					clearError();
+					label.focus();
+				} );
 			}
 
 			if ( delBtn ) {
@@ -304,22 +404,27 @@
 				if ( null === index ) {
 					return;
 				}
-				window.fetch( config.restRoot + '/cubbies/links/remove', {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': config.nonce
-					},
-					body: JSON.stringify( { index: parseInt( index, 10 ) } )
-				} ).then( function ( res ) {
-					if ( ! res.ok ) {
-						throw new Error( 'status ' + res.status );
+				fetchLinks( 'remove', { index: parseInt( index, 10 ) }, function () {
+					if ( editing && editing.index === parseInt( index, 10 ) ) {
+						setMode( 'reset' );
+						labelInput().value = '';
+						urlInputEl().value = '';
+						clearError();
 					}
-					return res.json();
-				} ).then( function ( data ) {
-					renderLinks( mount, data.links || [] );
-				} ).catch( function () {} );
+				} );
+			}
+		} );
+
+		// Enter inside the add/edit form submits it.
+		mount.addEventListener( 'keydown', function ( event ) {
+			if ( 'Enter' !== event.key || 'BUTTON' === event.target.tagName ) {
+				return;
+			}
+			if ( event.target.closest( '.sd-links-add' ) ) {
+				var addBtn = mount.querySelector( '[data-sd-link-add]' );
+				if ( addBtn ) {
+					addBtn.click();
+				}
 			}
 		} );
 	}

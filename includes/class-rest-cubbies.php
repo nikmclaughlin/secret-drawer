@@ -78,6 +78,30 @@ class Secret_Drawer_Rest_Cubbies {
 			)
 		);
 
+		// Links: update in place.
+		register_rest_route(
+			'secret-drawer/v1',
+			'/cubbies/links/update',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'links_update' ),
+				'permission_callback' => array( $this, 'can_access' ),
+				'args'                => array(
+					'index' => array( 'type' => 'integer', 'required' => true ),
+					'label' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'url'   => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
 		// Links: remove by index.
 		register_rest_route(
 			'secret-drawer/v1',
@@ -161,17 +185,56 @@ class Secret_Drawer_Rest_Cubbies {
 	}
 
 	/**
+	 * Shared error response: 400 with a human-readable message the UI can show.
+	 *
+	 * @param string $message Message.
+	 * @param array  $links   Current links (so the client stays in sync).
+	 * @return WP_REST_Response
+	 */
+	private function links_error( $message, $links ) {
+		$response = rest_ensure_response(
+			array(
+				'message' => $message,
+				'links'   => $links,
+			)
+		);
+		$response->set_status( 400 );
+		return $response;
+	}
+
+	/**
 	 * POST /cubbies/links/add
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public function links_add( $request ) {
-		$links = Secret_Drawer_Cubby_Links::add(
+		$result = Secret_Drawer_Cubby_Links::add(
 			(string) $request->get_param( 'label' ),
 			(string) $request->get_param( 'url' )
 		);
-		return rest_ensure_response( array( 'links' => $links ) );
+		if ( ! empty( $result['error'] ) ) {
+			return $this->links_error( $result['error'], $result['links'] );
+		}
+		return rest_ensure_response( array( 'links' => $result['links'] ) );
+	}
+
+	/**
+	 * POST /cubbies/links/update
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function links_update( $request ) {
+		$result = Secret_Drawer_Cubby_Links::update(
+			(int) $request->get_param( 'index' ),
+			(string) $request->get_param( 'label' ),
+			(string) $request->get_param( 'url' )
+		);
+		if ( ! empty( $result['error'] ) ) {
+			return $this->links_error( $result['error'], $result['links'] );
+		}
+		return rest_ensure_response( array( 'links' => $result['links'] ) );
 	}
 
 	/**
