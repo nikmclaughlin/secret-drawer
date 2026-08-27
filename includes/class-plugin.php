@@ -40,11 +40,14 @@ final class Secret_Drawer_Plugin {
 		require_once SECRET_DRAWER_DIR . 'includes/class-assets.php';
 		new Secret_Drawer_Assets();
 
+		require_once SECRET_DRAWER_DIR . 'includes/class-settings.php';
+		require_once SECRET_DRAWER_DIR . 'includes/class-rest.php';
+		new Secret_Drawer_Rest();
+
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
-		// M2: settings (class-settings.php) + role gate.
 		// M3: built-in cubbies.
-		// M4: cubby registry (class-cubby-registry.php) + REST (class-rest.php).
+		// M4: cubby registry (class-cubby-registry.php).
 	}
 
 	/**
@@ -92,16 +95,30 @@ final class Secret_Drawer_Plugin {
 
 	/**
 	 * Access gate. Server is the source of truth — callers must rely on
-	 * this before enqueueing anything or serving any data.
-	 *
-	 * M2: settings-driven role list + per-role checks land here; the
-	 * filter is already live so the shape of the API is fixed at M0.
+	 * this before enqueueing anything or serving any data. Every REST
+	 * permission callback re-checks via this method.
 	 *
 	 * @return bool
 	 */
 	public static function user_can_access() {
-		$allowed = current_user_can( 'manage_options' );
-		return (bool) apply_filters( 'secret_drawer_user_can_access', $allowed, wp_get_current_user() );
+		$user   = wp_get_current_user();
+		$roles  = (array) Secret_Drawer_Settings::get()['roles'];
+		$allowed = false;
+		foreach ( $roles as $role ) {
+			if ( in_array( $role, (array) $user->roles, true ) ) {
+				$allowed = true;
+				break;
+			}
+		}
+
+		/**
+		 * Override the access gate. Returning false hides the drawer
+		 * completely (no JS is ever enqueued for that user).
+		 *
+		 * @param bool   $allowed Whether the current user may access the drawer.
+		 * @param WP_User $user    Current user.
+		 */
+		return (bool) apply_filters( 'secret_drawer_user_can_access', $allowed, $user );
 	}
 
 	/**

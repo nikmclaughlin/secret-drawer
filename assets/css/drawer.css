@@ -165,6 +165,74 @@
 	margin-top: 8px;
 }
 
+/* In-drawer settings view */
+.sd-settings-body h3 {
+	margin: 18px 0 8px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.sd-settings-body h3:first-child {
+	margin-top: 0;
+}
+
+.sd-field-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 4px 12px;
+}
+
+.sd-check {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+
+.sd-field-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.sd-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 10px;
+	border: 1px solid var(--sd-border);
+	border-radius: 4px;
+	margin-bottom: 6px;
+	background: #fff;
+}
+
+.sd-row-title {
+	font-weight: 500;
+}
+
+.sd-row-desc {
+	display: block;
+	font-size: 12px;
+}
+
+.sd-settings-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+}
+
+.sd-save-status {
+	font-size: 12px;
+	color: #757575;
+}
+
+.sd-save-status.sd-error {
+	color: #b32d2e;
+}
+
 /* Footer wink */
 .sd-footer {
 	flex: 0 0 auto;

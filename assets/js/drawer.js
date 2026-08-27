@@ -15,12 +15,20 @@
 	var config = window.SECRET_DRAWER;
 	var h = window.wp.element.createElement;
 	var createRoot = window.wp.element.createRoot;
-	var TabPanel = window.wp.components && window.wp.components.TabPanel;
+	var C = window.wp.components || {};
+	var TabPanel = C.TabPanel;
+	var ToggleControl = C.ToggleControl;
+	var SelectControl = C.SelectControl;
+	var TextControl = C.TextControl;
+	var Button = C.Button;
 	var STORE_KEY = 'secretDrawer';
 
 	var state = {
 		open: false,
 		lastActiveElement: null,
+		view: 'drawer', // 'drawer' | 'settings'
+		saving: false,
+		draft: null, // Working copy of settings in the settings view.
 		firstRun: ! config.discovered && ! window.localStorage.getItem( STORE_KEY + '.discovered' )
 	};
 
@@ -221,6 +229,10 @@
 	}
 
 	function Drawer() {
+		if ( 'settings' === state.view ) {
+			return h( Settings );
+		}
+
 		var position = 'bottom' === config.position ? 'bottom' : 'right';
 		var className = 'sd-drawer sd-drawer--' + position + ( state.open ? ' is-open' : '' );
 
@@ -268,7 +280,18 @@
 						type: 'button',
 						title: config.strings.settings,
 						'aria-label': config.strings.settings,
-						disabled: true // M2: in-drawer settings view.
+						disabled: ! config.manageSettings,
+						onClick: function () {
+							state.view = 'settings';
+							state.draft = {
+								roles: ( config.roles || [] ).slice(),
+								trigger: config.trigger,
+								position: config.position,
+								width: config.width,
+								enabled: ( config.cubbies || [] ).map( function ( c ) { return c.id; } )
+							};
+							render();
+						}
 					}, '⚙️' ),
 					h( 'button', {
 						className: 'sd-icon-button',
@@ -295,6 +318,174 @@
 			root = createRoot( container );
 		}
 		root.render( h( Drawer ) );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * In-drawer settings view
+	 * ------------------------------------------------------------------ */
+
+	function Settings() {
+		var draft = state.draft || {};
+		var S = config.strings;
+
+		function toggleCubby( id, on ) {
+			draft.enabled = on
+				? draft.enabled.concat( [ id ] )
+				: draft.enabled.filter( function ( x ) { return x !== id; } );
+			render();
+		}
+
+		function save() {
+			state.saving = true;
+			render();
+
+			window.fetch( config.restRoot + '/settings', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': config.nonce
+				},
+				body: JSON.stringify( { settings: draft } )
+			} ).then( function ( res ) {
+				if ( ! res.ok ) {
+					throw new Error( String( res.status ) );
+				}
+				window.localStorage.removeItem( STORE_KEY + '.open' );
+				window.localStorage.removeItem( STORE_KEY + '.lastCubby' );
+				window.location.reload(); // Config is baked per page-load; apply on next load.
+			} ).catch( function () {
+				state.saving = false;
+				var bar = document.querySelector( '.sd-save-status' );
+				if ( bar ) {
+					bar.textContent = config.strings.saveError;
+					bar.className = 'sd-save-status sd-error';
+				}
+			} );
+		}
+
+		return h( 'div', { className: 'sd-settings' },
+			h( 'header', { className: 'sd-header' },
+				h( 'button', {
+					className: 'sd-icon-button',
+					type: 'button',
+					'aria-label': S.back,
+					onClick: function () {
+						state.view = 'drawer';
+						render();
+					}
+				}, '←' ),
+				h( 'h2', { className: 'sd-title' }, S.settings )
+			),
+			h( 'div', { className: 'sd-body sd-settings-body' },
+				// Who can find it.
+				h( 'h3', null, S.roles ),
+				h( 'div', { className: 'sd-field-grid' },
+					Object.keys( config.roleOptions || {} ).map( function ( slug ) {
+						var on = draft.roles.indexOf( slug ) !== -1;
+						return h( 'label', { key: slug, className: 'sd-check' },
+							h( 'input', {
+								type: 'checkbox',
+								checked: on,
+								onChange: function ( e ) {
+									draft.roles = e.target.checked
+										? draft.roles.concat( [ slug ] )
+										: draft.roles.filter( function ( r ) { return r !== slug; } );
+									render();
+								}
+							} ),
+							' ' + ( config.roleOptions[ slug ] || slug )
+						);
+					} )
+				),
+
+				// Secret word.
+				TextControl ? h( TextControl, {
+					label: S.secretWord,
+					help: S.secretHelp,
+					value: draft.trigger,
+					onChange: function ( v ) { draft.trigger = v; }
+				} ) : h( 'label', { className: 'sd-field' },
+					S.secretWord,
+					h( 'input', {
+						type: 'text',
+						value: draft.trigger,
+						onChange: function ( e ) { draft.trigger = e.target.value; }
+					} )
+				),
+
+				// Position + width.
+				h( 'div', { className: 'sd-field-row' },
+					SelectControl ? h( SelectControl, {
+						label: S.position,
+						value: draft.position,
+						options: [
+							{ value: 'right', label: 'Right →' },
+							{ value: 'bottom', label: 'Bottom ↑' }
+						],
+						onChange: function ( v ) { draft.position = v; }
+					} ) : h( 'label', { className: 'sd-field' },
+						S.position,
+						h( 'select', {
+							value: draft.position,
+							onChange: function ( e ) { draft.position = e.target.value; }
+						},
+							h( 'option', { value: 'right' }, 'Right →' ),
+							h( 'option', { value: 'bottom' }, 'Bottom ↑' )
+						)
+					),
+					TextControl ? h( TextControl, {
+						type: 'number',
+						label: S.width,
+						value: draft.width,
+						onChange: function ( v ) { draft.width = v; }
+					} ) : null
+				),
+
+				// Cubby library: in-drawer (toggles) + available to add.
+				h( 'h3', null, S.inDrawer ),
+				( draft.enabled.length ? draft.enabled.map( function ( id ) {
+					var meta = config.catalog[ id ] || {};
+					return h( 'div', { key: id, className: 'sd-row' },
+						h( 'span', { className: 'sd-row-title' }, meta.title || id ),
+						h( 'button', {
+							className: 'sd-icon-button',
+							type: 'button',
+							'aria-label': 'Remove ' + ( meta.title || id ),
+							onClick: function () { toggleCubby( id, false ); }
+						}, '−' )
+					);
+				} ) : h( 'p', { className: 'sd-muted' }, 'This drawer is empty. Add something from the library.' ) ),
+
+				h( 'h3', null, S.library ),
+				Object.keys( config.catalog ).filter( function ( id ) {
+					return draft.enabled.indexOf( id ) === -1;
+				} ).map( function ( id ) {
+					var meta = config.catalog[ id ];
+					return h( 'div', { key: id, className: 'sd-row' },
+						h( 'span', null,
+							h( 'strong', null, meta.title ),
+							h( 'span', { className: 'sd-muted sd-row-desc' }, meta.description || '' )
+						),
+						h( 'button', {
+							className: 'sd-icon-button',
+							type: 'button',
+							'aria-label': 'Add ' + meta.title,
+							onClick: function () { toggleCubby( id, true ); }
+						}, '+' )
+					);
+				} )
+			),
+			h( 'footer', { className: 'sd-footer sd-settings-footer' },
+				h( 'span', { className: 'sd-save-status', role: 'status' } ),
+				h( Button, {
+					variant: 'primary',
+					isBusy: state.saving,
+					disabled: state.saving,
+					onClick: save
+				}, S.save )
+			)
+		);
 	}
 
 	/* ------------------------------------------------------------------ *

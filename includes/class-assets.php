@@ -66,12 +66,12 @@ class Secret_Drawer_Assets {
 	}
 
 	/**
-	 * Settings with defaults applied. Replaced by class-settings.php at M2.
+	 * Settings with defaults applied and sanitized.
 	 *
 	 * @return array
 	 */
 	private static function settings() {
-		return wp_parse_args( (array) get_option( Secret_Drawer_Plugin::OPTION_SETTINGS, array() ), Secret_Drawer_Plugin::default_settings() );
+		return Secret_Drawer_Settings::get();
 	}
 
 	/**
@@ -83,52 +83,86 @@ class Secret_Drawer_Assets {
 	 */
 	private static function config( $settings ) {
 		return array(
-			'restRoot'   => esc_url_raw( rest_url( 'secret-drawer/v1' ) ),
-			'nonce'      => wp_create_nonce( 'wp_rest' ),
-			'trigger'    => (string) apply_filters( 'secret_drawer_trigger_word', $settings['trigger_word'] ),
-			'width'      => (int) $settings['width'],
-			'position'   => 'bottom' === $settings['position'] ? 'bottom' : 'right',
-			'discovered' => (bool) get_user_meta( get_current_user_id(), 'secret_drawer_discovered', true ),
-			'cubbies'    => self::cubbies_for_user( $settings ),
-			'strings'    => array(
-				'title'      => __( 'Secret Drawer', 'secret-drawer' ),
-				'close'      => __( 'Close', 'secret-drawer' ),
-				'settings'   => __( 'Drawer settings', 'secret-drawer' ),
-				'toast'      => __( '🔓 You found the Secret Drawer.', 'secret-drawer' ),
-				'emptyCubby' => __( 'Nothing here yet.', 'secret-drawer' ),
-				'loadError'  => __( 'Could not load this cubby.', 'secret-drawer' ),
+			'restRoot'       => esc_url_raw( rest_url( 'secret-drawer/v1' ) ),
+			'nonce'          => wp_create_nonce( 'wp_rest' ),
+			'trigger'        => (string) apply_filters( 'secret_drawer_trigger_word', $settings['trigger_word'] ),
+			'width'          => (int) $settings['width'],
+			'position'       => 'bottom' === $settings['position'] ? 'bottom' : 'right',
+			'discovered'     => (bool) get_user_meta( get_current_user_id(), 'secret_drawer_discovered', true ),
+			'cubbies'        => self::cubbies_for_user( $settings ),
+			'catalog'        => self::catalog_for_user( $settings ),
+			'roleOptions'    => self::role_options(),
+			'roles'          => (array) $settings['roles'],
+			'manageSettings' => current_user_can( 'manage_options' ),
+			'strings'        => array(
+				'title'       => __( 'Secret Drawer', 'secret-drawer' ),
+				'close'       => __( 'Close', 'secret-drawer' ),
+				'settings'    => __( 'Drawer settings', 'secret-drawer' ),
+				'back'        => __( 'Back', 'secret-drawer' ),
+				'save'        => __( 'Save changes', 'secret-drawer' ),
+				'saved'       => __( 'Saved — reloading…', 'secret-drawer' ),
+				'saveError'   => __( 'Could not save settings.', 'secret-drawer' ),
+				'roles'       => __( 'Who can find it', 'secret-drawer' ),
+				'secretWord'  => __( 'Secret word', 'secret-drawer' ),
+				'secretHelp'  => __( 'Typed on any admin screen (outside text fields) to open the drawer.', 'secret-drawer' ),
+				'position'    => __( 'Drawer position', 'secret-drawer' ),
+				'width'       => __( 'Width (px)', 'secret-drawer' ),
+				'inDrawer'    => __( 'In your drawer', 'secret-drawer' ),
+				'library'     => __( 'Cubby library', 'secret-drawer' ),
+				'toast'       => __( '🔓 You found the Secret Drawer.', 'secret-drawer' ),
+				'emptyCubby'  => __( 'Nothing here yet.', 'secret-drawer' ),
+				'loadError'   => __( 'Could not load this cubby.', 'secret-drawer' ),
 			),
 		);
 	}
 
 	/**
-	 * Enabled cubby metadata for the tab strip. M4: this moves to
-	 * class-cubby-registry.php + the secret_drawer_cubbies filter; the
-	 * shape (id/title/icon) is fixed now so the JS never changes.
+	 * Library catalog for the in-drawer settings picker: only types whose
+	 * titles are safe for this user. Hidden types (no title) are dropped.
 	 *
 	 * @param array $settings Settings.
 	 * @return array[]
 	 */
-	private static function cubbies_for_user( $settings ) {
-		$catalog = array(
-			'notes'         => array(
-				'title' => __( 'Notes', 'secret-drawer' ),
-				'icon'  => 'dashicons-edit-page',
-			),
-			'links'         => array(
-				'title' => __( 'Quick Links', 'secret-drawer' ),
-				'icon'  => 'dashicons-admin-links',
-			),
-			'notifications' => array(
-				'title' => __( 'Notifications', 'secret-drawer' ),
-				'icon'  => 'dashicons-bell',
-			),
-		);
+	private static function catalog_for_user( $settings ) {
+		$out = array();
+		foreach ( Secret_Drawer_Settings::cubby_catalog() as $id => $cubby ) {
+			if ( empty( $cubby['title'] ) ) {
+				continue;
+			}
+			$out[ $id ] = array(
+				'title'       => $cubby['title'],
+				'icon'        => isset( $cubby['icon'] ) ? (string) $cubby['icon'] : 'dashicons-marker',
+				'description' => isset( $cubby['description'] ) ? (string) $cubby['description'] : '',
+			);
+		}
+		return $out;
+	}
 
+	/**
+	 * Role display names for the settings multi-select.
+	 *
+	 * @return array
+	 */
+	private static function role_options() {
+		$out = array();
+		foreach ( wp_roles()->roles as $slug => $role ) {
+			$out[ $slug ] = $role['name'];
+		}
+		return $out;
+	}
+
+	/**
+	 * Enabled cubby metadata for the tab strip. M4: this moves to
+	private static function cubbies_for_user( $settings ) {
 		$out = array();
 		foreach ( (array) $settings['enabled_cubbies'] as $id ) {
-			if ( isset( $catalog[ $id ] ) ) {
-				$out[] = array_merge( array( 'id' => $id ), $catalog[ $id ] );
+			$meta = Secret_Drawer_Settings::cubby_catalog()[ $id ] ?? null;
+			if ( $meta && ! empty( $meta['title'] ) ) {
+				$out[] = array(
+					'id'    => $id,
+					'title' => $meta['title'],
+					'icon'  => isset( $meta['icon'] ) ? (string) $meta['icon'] : 'dashicons-marker',
+				);
 			}
 		}
 		return $out;
