@@ -285,13 +285,16 @@
 }
 
 .sd-links-add {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr auto;
 	gap: 6px;
+	align-items: center;
 }
 
 .sd-links-add input[type="text"] {
-	flex: 1 1 auto;
-	min-width: 0;
+	grid-column: 1 / -1;
+	width: 100%;
+	box-sizing: border-box;
 	border: 1px solid var(--sd-border);
 	border-radius: 3px;
 	padding: 4px 8px;
