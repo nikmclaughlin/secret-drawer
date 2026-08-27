@@ -652,22 +652,23 @@
 	letter-spacing: 0.04em;
 	color: var(--sd-accent);
 	opacity: 0;
-	animation: sd-ghost 0.9s ease-out forwards;
+	animation: sd-ghost 1s ease-out forwards;
 	pointer-events: none;
 }
 
+/* Grow in (opacity + scale ramp together), then fade out at full size. */
 @keyframes sd-ghost {
 	0% {
 		opacity: 0;
+		transform: translateY(-50%) scale(0.7);
 	}
-	25% {
-		opacity: 0.95;
-	}
-	70% {
-		opacity: 0.95;
+	45% {
+		opacity: 1;
+		transform: translateY(-50%) scale(1);
 	}
 	100% {
 		opacity: 0;
+		transform: translateY(-50%) scale(1);
 	}
 }
 
