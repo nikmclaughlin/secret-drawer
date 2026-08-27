@@ -85,6 +85,7 @@ class Secret_Drawer_Assets {
 		return array(
 			'restRoot'       => esc_url_raw( rest_url( 'secret-drawer/v1' ) ),
 			'nonce'          => wp_create_nonce( 'wp_rest' ),
+			'session'        => wp_get_session_token(),
 			'trigger'        => (string) apply_filters( 'secret_drawer_trigger_word', $settings['trigger_word'] ),
 			'width'          => (int) $settings['width'],
 			'position'       => 'bottom' === $settings['position'] ? 'bottom' : 'right',

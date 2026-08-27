@@ -197,8 +197,49 @@
 	}
 
 	/**
-	 * Notes: debounced autosave (1.2s), status line reflects each state.
+	 * Notes: debounced autosave (1.2s). The in-flight state lives on the
+	 * module so a tab switch can flush the pending save immediately.
 	 */
+	var pendingNotes = null;
+
+	function saveNotesNow() {
+		if ( ! pendingNotes ) {
+			return;
+		}
+		var field = pendingNotes.field;
+		var indicator = pendingNotes.indicator;
+		if ( pendingNotes.timer ) {
+			window.clearTimeout( pendingNotes.timer );
+			pendingNotes.timer = null;
+		}
+		window.fetch( config.restRoot + '/cubbies/notes/save', {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': config.nonce
+			},
+			body: JSON.stringify( { content: field.value } )
+		} ).then( function ( res ) {
+			if ( ! res.ok ) {
+				throw new Error( 'status ' + res.status );
+			}
+			if ( indicator && indicator.isConnected ) {
+				indicator.textContent = 'Saved ✓';
+			}
+		} ).catch( function () {
+			if ( indicator && indicator.isConnected ) {
+				indicator.textContent = 'Save failed — will retry on next edit.';
+			}
+		} );
+	}
+
+	function flushPendingNotes() {
+		if ( pendingNotes ) {
+			saveNotesNow();
+		}
+	}
+
 	function wireNotes( mount ) {
 		var field = mount.querySelector( '[data-sd-notes]' );
 		var indicator = mount.querySelector( '.sd-save-ind' );
@@ -206,37 +247,16 @@
 			return;
 		}
 
-		var timer = null;
+		pendingNotes = { field: field, indicator: indicator, timer: null };
 
 		field.addEventListener( 'input', function () {
-			if ( timer ) {
-				window.clearTimeout( timer );
+			if ( pendingNotes.timer ) {
+				window.clearTimeout( pendingNotes.timer );
 			}
 			if ( indicator ) {
 				indicator.textContent = 'Saving…';
 			}
-			timer = window.setTimeout( function () {
-				window.fetch( config.restRoot + '/cubbies/notes/save', {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': config.nonce
-					},
-					body: JSON.stringify( { content: field.value } )
-				} ).then( function ( res ) {
-					if ( ! res.ok ) {
-						throw new Error( 'status ' + res.status );
-					}
-					if ( indicator ) {
-						indicator.textContent = 'Saved ✓';
-					}
-				} ).catch( function () {
-					if ( indicator ) {
-						indicator.textContent = 'Save failed — will retry on next edit.';
-					}
-				} );
-			}, 1200 );
+			pendingNotes.timer = window.setTimeout( saveNotesNow, 1200 );
 		} );
 	}
 
@@ -384,6 +404,7 @@
 				tabs: tabs,
 				initialTabName: lsGet( 'lastCubby' ) || ( config.cubbies[ 0 ] && config.cubbies[ 0 ].id ),
 				onSelect: function ( name ) {
+					flushPendingNotes();
 					lsSet( 'lastCubby', name );
 				},
 				children: function ( tab ) {
@@ -703,6 +724,17 @@
 			render();
 		}
 	};
+
+	// A fresh login (logout/login) starts with the drawer closed: the
+	// server stamps every login with its own session token in the config.
+	// Page loads *within* one session keep the drawer open, as before.
+	if ( config.session ) {
+		if ( lsGet( 'session' ) !== config.session ) {
+			lsSet( 'open', false );
+			lsSet( 'lastCubby', '' );
+		}
+		lsSet( 'session', config.session );
+	}
 
 	// Restore previous open state without the celebration.
 	if ( lsGet( 'open' ) === '1' ) {
