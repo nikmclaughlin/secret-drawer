@@ -30,15 +30,17 @@ ship — it just happens to have a secret door.
    (`hellodolly` — by default).
 2. A drawer slides in from the right edge — overlay, not a layout shift.
    A one-time toast: "🔓 You found the Secret Drawer."
-3. The drawer has cubby tabs: **Notes**, **Quick Links**, **Notifications**
-   in v1. Notes autosave to their user profile. Links are their own curated
-   jump list. Notifications aggregate update/comment counts with deep links.
+3. The drawer ships seeded with three cubby tabs: **Notes**, **Quick
+   Links**, **Notifications**. Notes autosave to their user profile. Links
+   are their own curated jump list. Notifications aggregate update/comment
+   counts with deep links. A fourth type — **Levers**, buttons that actually
+   do things on the site — lands with the Cubby API at M4.
 4. ESC or ✕ closes it. Reopening restores the last-active cubby. Position
    and open state persist via `localStorage`.
 5. The site owner opens the drawer's gear icon → an **in-drawer settings
    view** — never a normal admin-menu page — to choose which roles can
-   discover it, change the trigger word, toggle & reorder cubbies, pick
-   drawer position and width.
+   discover it, change the trigger word, add/remove & reorder cubbies from
+   the **cubby library**, pick drawer position and width.
 6. Other plugins register their own cubbies via a PHP filter and they show
    up as new tabs.
 
@@ -123,11 +125,22 @@ the admin footer.
   plus a silly confetti burst of 🤫 emoji. 400ms. Then it never bothers
   you again.
 
-### 3.4 Content model = Cubbies
+### 3.4 Content model = a cubby library, not fixed tabs
 
-Everything in the drawer is a **cubby**: a tab with an id, title, dashicon,
-capability requirement, and a render strategy. v1 ships three built-ins;
-the registry is filterable from day one so the architecture is proven early.
+The registry is a **catalog of cubby types** — each with an id, title,
+dashicon, description, capability requirement, and a render strategy. What
+the drawer shows is the user's **chosen instances** of those types, in their
+chosen order. An emptied drawer gets an on-theme empty state ("This drawer
+is empty. Add something from the library."); activation seeds the drawer
+with the three built-ins so it's useful immediately.
+
+- v1 rule: **one instance per type** (singleton). The settings store an
+  ordered list of type ids, so multi-instance cubbies can land later
+  without a data migration. Third-party types appear in the same library,
+  the same way as built-ins.
+- Cubbies are THE unit of extensibility: future features ship as new cubby
+  types rather than new drawer features, and third-party plugins register
+  their own via the filter — the drawer grows without the drawer changing.
 
 ### 3.5 UI direction — modern admin style, minimal custom CSS
 
@@ -230,7 +243,7 @@ ergonomics — it can ship its own build.)
 
 | Store | Key | Type | Scope |
 |-------|-----|------|-------|
-| option | `secret_drawer_settings` | `{ version, roles[], trigger_word, cubbies[], width, position }` | site |
+| option | `secret_drawer_settings` | `{ version, roles[], trigger_word, enabled_cubbies[], width, position }` — `enabled_cubbies` is the ordered list of cubby-type ids in the drawer; seeded `['notes','links','notifications']` on activation | site |
 | usermeta | `secret_drawer_cubby_notes` | text | per-user (cubby `notes`) |
 | usermeta | `secret_drawer_cubby_links` | array of `{label, url}` | per-user (cubby `links`) |
 | usermeta | `secret_drawer_discovered` | timestamp | per-user (drawer-level) |
@@ -277,20 +290,25 @@ HTML) — keeps cubby authors in familiar WP territory; JS just injects it.
 ```php
 add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
     $cubbies['todo'] = [
-        'id'         => 'todo',
-        'title'      => __( 'Team Todo', 'secret-drawer' ),
-        'icon'       => 'dashicons-list-view',
-        'capability' => 'edit_pages',
-        'order'      => 40,
-        'render'     => fn() => '<p>…</p>',           // HTML string
-        'refresh_on' => 'open',                       // or 'never'
+        'id'          => 'todo',
+        'title'       => __( 'Team Todo', 'secret-drawer' ),
+        'description' => __( 'A shared list of things to do.', 'secret-drawer' ),
+        'icon'        => 'dashicons-list-view',
+        'capability'  => 'edit_pages',
+        'singleton'   => true,                        // v1: every type is single-instance
+        'order'       => 40,
+        'render'      => fn() => '<p>…</p>',          // HTML string (or enqueue + JS render)
+        'refresh_on'  => 'open',                      // or 'never'
     ];
     return $cubbies;
 } );
 ```
 
-Registry sorts by `order`, drops cubbies whose capability the user lacks,
-and hands the surviving set (id/title/icon only) to the front end.
+Registry sorts by `order`, drops cubby *types* whose capability the user
+lacks, and hands the surviving catalog (id/title/icon only) to the front
+end. Which of those types actually appear in the drawer is the
+`enabled_cubbies` setting — the library and the drawer's contents are
+separate concerns.
 
 ### JS events (for cubby authors)
 
@@ -321,6 +339,15 @@ touching its internals.
   (filterable) so plugins can inject their own badge counts.
 - Each item deep-links to the relevant admin screen. Zero-count items
   hidden. The drawer's tab icon shows a dot badge when count > 0.
+
+### 8.4 Levers (buttons that do things — ships with the Cubby API at M4)
+- A cubby of one-click actions against the site. Default lever set to
+  decide at M4; candidates: flush cache, toggle maintenance mode (if
+  available), regenerate .htaccess, empty trash, copy site URL, toggle
+  comments site-wide.
+- Every lever calls a real REST endpoint with real capability checks —
+  destructive levers get confirmations. This cubby is the proof that
+  cubbies can *act*, not just display.
 
 ---
 
@@ -371,15 +398,18 @@ no layout shift; no dependencies.
 ### M2 — Access control + settings
 Role gate (server-enforced), **in-drawer settings view** (accessed only via
 the drawer's gear icon: roles multi-select, trigger word field, cubby
-enable/reorder, width, position right/bottom), REST `/settings`.
+library — add/remove & reorder from the installed types, width, position
+right/bottom), REST `/settings`.
 **AC:** a subscriber receives zero plugin JS; settings persist and
-sanitize correctly; no admin-menu page exists at all.
+sanitize correctly; a cubby removed from the drawer vanishes on the next
+page load; no admin-menu page exists at all.
 
 ### M3 — Built-in cubbies
 Notes (autosave), Quick Links (CRUD), Notifications (counts + deep links +
 transient cache + tab badge).
 **AC:** data survives cache clears and logins on another device; counts
-match the real screens.
+match the real screens; removing and re-adding a cubby from the library
+preserves its data.
 
 ### M4 — Cubby API + docs
 Registry + `secret_drawer_cubbies` filter, JS events + `window.SecretDrawer`,
