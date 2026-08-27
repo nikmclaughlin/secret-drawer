@@ -35,8 +35,10 @@ ship — it just happens to have a secret door.
    jump list. Notifications aggregate update/comment counts with deep links.
 4. ESC or ✕ closes it. Reopening restores the last-active widget. Position
    and open state persist via `localStorage`.
-5. The site owner goes to **Settings → Secret Drawer** to: choose which
-   roles can discover it, enable/disable triggers, toggle & reorder widgets.
+5. The site owner opens the drawer's gear icon → an **in-drawer settings
+   view** — never a normal admin-menu page — to choose which roles can
+   discover it, enable/disable triggers, toggle & reorder widgets, pick
+   drawer position.
 6. Other plugins register their own widgets via a PHP filter and they show
    up as new tabs.
 
@@ -76,16 +78,24 @@ on each click so it feels alive).
 - Every REST endpoint independently re-checks access (never trust the
   front end). Per-widget capability checks on top (e.g. Notifications
   requires `update_core`).
-- Settings screen requires `manage_options`.
+- Settings live *inside the drawer* (gear icon); saving requires
+  `manage_options`. There is no admin-menu settings page — nothing about
+  the plugin leaks onto normal admin screens.
 - Drawer content is fetched via authenticated REST calls *after* unlock —
   nothing sensitive is baked into the initial page load.
 
 ### 3.3 The drawer (UX spec)
 
-- Fixed-position panel anchored right, full height, **320px wide**
-  (setting: 280–480). Overlays content (z-index above the admin bar,
-  ~`999999`), doesn't push layout — safe on every admin screen including
-  ones with their own custom widths.
+- Fixed-position overlay panel, full height, **320px wide** (setting:
+  280–480). Overlays content (z-index above the admin bar, ~`999999`),
+  doesn't push layout — safe on every admin screen including ones with
+  their own custom widths.
+- **Position is a setting:** `right` (default) or `bottom` (sheet-style,
+  capped ~70vh). Recommendation: right — the admin already owns the top bar
+  and left nav, so a right-hand overlay completes the frame, and drawer
+  content (notes, link lists, notifications) is tall and list-like, which
+  suits a sidebar. Bottom exists because it's one CSS modifier
+  (`.sd-drawer--bottom`) and some people prefer it on small screens.
 - Structure: header (title + gear icon → settings + ✕ close), widget tab
   strip (dashicons), active widget body, thin footer with a 🤫 wink.
 - Enter animation ~200ms ease-out; respects `prefers-reduced-motion`.
@@ -103,6 +113,27 @@ Everything in the drawer is a **widget**: a tab with an id, title, dashicon,
 capability requirement, and a render strategy. v1 ships three built-ins;
 the registry is filterable from day one so the architecture is proven early.
 
+### 3.5 UI direction — DataViews *look*, hand-rolled
+
+The drawer mimics the modern WP admin / Gutenberg **DataViews** aesthetic —
+toolbars with search + layout toggles, compact tables and lists, letter
+avatars, muted secondary meta, sticky footer with counts — but ships none of
+its machinery. Findings that drove this decision: `wp-dataviews` is a
+Gutenberg-plugin package (not bundled in core), it depends on
+`wp-components` + React 18, and enqueuing React on *every* admin page for a
+hidden drawer is heavyweight and conflict-prone. So the drawer ships a small
+vanilla CSS/markup kit (~150 lines) that speaks the same visual language:
+
+- `.sd-dv-toolbar` — search field, layout toggle, row actions
+- `.sd-dv-table` — compact rows, sort indicators, checkbox column where apt
+- `.sd-dv-list` — stacked rows with letter avatar + muted meta lines
+- `.sd-dv-footer` — item counts / pagination, sticky at the drawer's bottom
+
+**Real DataViews stays an open door:** a widget that genuinely needs
+sortable/bulk views can load a React "island" (bundled
+`@wordpress/dataviews`) inside *its own tab only*, lazily, on first
+activation. That's a per-widget choice, not the drawer's baseline.
+
 ---
 
 ## 4. Architecture
@@ -118,7 +149,8 @@ secret-drawer/
 ├── includes/
 │   ├── class-plugin.php           # Singleton: hooks everything together
 │   ├── class-assets.php           # Enqueues + wp_localize_script config
-│   ├── class-settings.php         # Settings API: register, sanitize, page
+│   ├── class-settings.php         # Settings storage: register, sanitize,
+│   │                              #   REST-persisted (no admin-menu page)
 │   ├── class-rest.php             # REST routes registration
 │   ├── class-widget-registry.php  # Registry + secret_drawer_widgets filter
 │   └── widgets/
@@ -157,7 +189,7 @@ framework-grade rendering.)
 
 | Store | Key | Type | Scope |
 |-------|-----|------|-------|
-| option | `secret_drawer` | `{ version, roles[], triggers[], widgets[], width }` | site |
+| option | `secret_drawer` | `{ version, roles[], triggers[], widgets[], width, position }` | site |
 | usermeta | `secret_drawer_notes` | text | per-user |
 | usermeta | `secret_drawer_links` | array of `{label, url}` | per-user |
 | usermeta | `secret_drawer_discovered` | timestamp | per-user |
@@ -182,7 +214,7 @@ Namespace: `secret-drawer/v1` (nonce via `wp_rest`, standard cookie auth).
 | POST | `/notes` | `read` + access gate | Save notes (returns sanitized copy) |
 | GET/POST/DELETE | `/links(/…)` | `read` + access gate | Quick-links CRUD |
 | GET | `/notifications` | `update_core` | Aggregated counts + deep links |
-| GET/POST | `/settings` | `manage_options` | Settings read/write |
+| GET/POST | `/settings` | `manage_options` | Settings read/write (REST, not a settings page) |
 
 All responses: `rest_ensure_response`, sanitized server-side. Widget HTML is
 rendered server-side (widgets are PHP classes with a `render()` returning
@@ -287,11 +319,11 @@ first-unlock toast + 🤫 confetti.
 no layout shift; no dependencies.
 
 ### M2 — Access control + settings
-Role gate (server-enforced), Settings screen under **Settings → Secret
-Drawer** (roles multi-select, trigger toggles, widget enable/reorder,
-width), REST `/settings`, gear icon inside drawer opens settings.
+Role gate (server-enforced), **in-drawer settings view** (accessed only via
+the drawer's gear icon: roles multi-select, trigger toggles, widget
+enable/reorder, width, position right/bottom), REST `/settings`.
 **AC:** a subscriber receives zero plugin JS; settings persist and
-sanitize correctly.
+sanitize correctly; no admin-menu page exists at all.
 
 ### M3 — Built-in widgets
 Notes (autosave), Quick Links (CRUD), Notifications (counts + deep links +
@@ -326,19 +358,38 @@ on a clean WP + 2025 theme.
 
 ---
 
-## 13. Open questions
+## 13. Distribution strategy
 
-1. **Distribution:** personal plugin, or wp.org-bound? (Affects readme
-   rigor, settings polish, and how paranoid the security bar needs to be.
-   This plan assumes wp.org-grade.)
+**Today:** personal project / built for the joke — you're going to tweet it
+and enjoy whatever happens. **But:** the wp.org slug `secret-drawer` is
+*currently unclaimed* (verified against the plugins API), and wp.org listings
+require GPL-compatible code with no registration locks — so the plan
+deliberately keeps the door open:
+
+- **Plugin header ships release-grade from day one:** proper
+  `Plugin Name/Description/Text Domain`, `Requires WP/PHP`, license field.
+  Zero rework if you publish.
+- **No registration/key checks ever** — every trigger, setting, and widget
+  works out of the box; nothing "phones home." (Also just correct for a
+  secret feature: it shouldn't leak its own existence.)
+- **wp.org-clean repo layout:** `readme.txt` added at M5; `languages/` dir
+  present; no dev clutter (`node_modules` etc.) in tagged exports; all
+  strings i18n-ready so a future translation community isn't locked out.
+- **Extensibility filter is public API** — documented, versioned, and not
+  renamed casually; third-party widgets only make a future listing stronger.
+
+The trade-off accepted: we *do* carry i18n/readme/polish costs earlier than
+a purely personal plugin would. That cost is small (vanilla JS, no build
+step) and keeps both futures open.
+1. ~~Distribution~~ → **resolved:** personal-now, wp.org-ready (see §13).
 2. **Shared content:** should any widget be site-wide rather than
    per-user? (e.g. "Site notes" every admin sees — candidate for v2, or
    v1 if you want it day one.)
-3. **Rich notes:** plain textarea for v1 acceptable, or markdown-ish
+4. **Rich notes:** plain textarea for v1 acceptable, or markdown-ish
    rendering immediately?
-4. **Multisite:** network-activate behavior — settings network-wide, or
+5. **Multisite:** network-activate behavior — settings network-wide, or
    per-site? (Recommend: per-site for v1; network toggle later.)
-5. **Trigger feedback:** when someone clicks the logo twice, do we tease
+6. **Trigger feedback:** when someone clicks the logo twice, do we tease
    (logo does a tiny wiggle) or stay perfectly silent? (Recommend a
    whisper-quiet wiggle — teases without revealing.)
 
