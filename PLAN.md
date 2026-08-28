@@ -574,8 +574,8 @@ on a clean WP + 2025 theme.
 Nik picked four cubbies for the starting library — all client-side except
 Site Vitals. Build order: dice → vitals → passphrase → timer.
 
-- **🎲 Dice roller** — pick d6 / d12 / d20 (plus d4/d8/d100 for the D&D
-  crowd), click Roll, tumble animation, random result. Purely client-side
+- **🎲 Dice roller** — pick d2 / d6 / d12 / d20, click Roll, tumble
+  animation, random result. Purely client-side
   (`Math.random`); CSS tumble honoring `prefers-reduced-motion`; a running
   "last 5 rolls" line so it feels alive. No REST endpoint needed.
 - **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
