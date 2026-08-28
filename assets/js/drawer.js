@@ -1024,6 +1024,7 @@
 	function restackPanelsBottom() {
 		var margin = 8;
 		var gap = 12;
+		var rtl = isRTL();
 		var drawer = document.querySelector( '.sd-drawer' );
 		var drawerTop = drawer ? drawer.getBoundingClientRect().top : window.innerHeight - 280;
 		var cap = Math.max( 240, drawerTop - 12 ); // Never climb above the sheet's top edge.
@@ -1041,10 +1042,12 @@
 			}
 			var h = panel.el.offsetHeight;
 			var top = rowBottom - h;
-			panel.el.style.left = x + 'px';
+			// RTL mirrors the row so it grows leftward from the right edge.
+			var left = rtl ? window.innerWidth - margin - x - PANEL_WIDTH : x;
+			panel.el.style.left = left + 'px';
 			panel.el.style.top = top + 'px';
 			panel.el.style.maxHeight = cap + 'px';
-			panel.rect = { left: x, right: x + PANEL_WIDTH, top: top };
+			panel.rect = { left: left, right: left + PANEL_WIDTH, top: top };
 			rowHeight = Math.max( rowHeight, h );
 			x += PANEL_WIDTH + gap;
 		} );
