@@ -20,11 +20,11 @@ delete_metadata( 'user', 0, 'secret_drawer_discovered', '', true );
 
 // Sweep all cubby-scoped usermeta (secret_drawer_cubby_*).
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-$cubby_keys = $GLOBALS['wpdb']->get_col(
+$secret_drawer_cubby_keys = $GLOBALS['wpdb']->get_col(
 	"SELECT DISTINCT meta_key FROM {$GLOBALS['wpdb']->usermeta} WHERE meta_key LIKE 'secret\\_drawer\\_cubby\\_%'"
 );
-foreach ( (array) $cubby_keys as $meta_key ) {
-	delete_metadata( 'user', 0, $meta_key, '', true );
+foreach ( (array) $secret_drawer_cubby_keys as $secret_drawer_meta_key ) {
+	delete_metadata( 'user', 0, $secret_drawer_meta_key, '', true );
 }
 
 // Notifications cache transient (per-site on multisite).

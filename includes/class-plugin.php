@@ -62,9 +62,15 @@ final class Secret_Drawer_Plugin {
 	}
 
 	/**
-	 * Load translations.
+	 * Load translations for custom-language-directory installs (WP-CLI,
+	 * mu-loading). When hosted on WordPress.org, translations for this
+	 * slug load automatically — this is belt-and-braces only, so it
+	 * deliberately runs after the plugin's own languages/ dir first.
 	 */
 	public function load_textdomain() {
+		if ( is_textdomain_loaded( 'secret-drawer' ) ) {
+			return;
+		}
 		load_plugin_textdomain(
 			'secret-drawer',
 			false,
