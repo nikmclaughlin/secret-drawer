@@ -547,11 +547,25 @@ set is copy-site-URL (client-side, clipboard) + empty-trash (server-side,
 complete drop-in example cubby).
 **AC:** drop-in example cubby renders as a fourth tab.
 
-### M5 — Polish & release-readiness
-i18n (all strings, `wp-pot` extraction), RTL audit, small-screen audit,
-reduced-motion, `readme.txt`, screenshots, version `1.0.0` tag.
-**AC:** passes Plugin Check (pcp) with no errors; fresh-install smoke test
-on a clean WP + 2025 theme.
+### M5 — Polish & release-readiness (✅ code complete, CP4 pending)
+Done:
+- **i18n**: every user-facing JS literal routed through the localized
+  strings config; `escAttr()` helper for client markup;
+  `wp_set_script_translations()`; `languages/secret-drawer.pot`
+  generated (wp i18n make-pot, zero placeholder warnings).
+- **readme.txt** (wp.org format: description, FAQ, installation,
+  screenshots, changelog).
+- **RTL audit**: bottom-mode panel rows now mirror (grow leftward);
+  launcher/cascade/ghost flight already RTL-aware; logical props
+  throughout the stylesheet.
+- **Small screens**: pop-out panels span the viewport under 480px
+  (stacking math unaffected).
+- **Plugin Check**: 0 errors; remaining warnings are dev-file noise
+  (.gitignore, PLAN.md, extending doc) that a wp.org export drops.
+- Version bumped to `1.0.0` (header, constant, readme).
+**Remaining:** CP4 human pass — fresh-install smoke on clean WP + 2025
+theme, RTL flip, small window, keyboard-only run (open → cubbies →
+settings → close), screenshots for the readme, then tag 1.0.0.
 
 ---
 

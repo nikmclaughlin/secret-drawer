@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Secret Drawer
  * Description:       A hidden drawer in wp-admin, unlocked by a secret word. Silly to find, genuinely useful to have.
- * Version:           0.1.0
+ * Version:           1.0.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Nik
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SECRET_DRAWER_VERSION', '0.1.0' );
+define( 'SECRET_DRAWER_VERSION', '1.0.0' );
 define( 'SECRET_DRAWER_FILE', __FILE__ );
 define( 'SECRET_DRAWER_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SECRET_DRAWER_URL', plugin_dir_url( __FILE__ ) );

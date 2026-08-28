@@ -4,7 +4,7 @@ Tags: admin, drawer, notes, privacy, productivity
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 1.0.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -77,10 +77,13 @@ Notes and links are stored per-user in user meta. Notifications are computed fro
 
 == Changelog ==
 
+= 1.0.0 =
+* First tagged release: secret-word trigger, launcher drawer with right and bottom positions, per-user Notes / Quick Links / Notifications / Levers cubbies, cascading pop-out panels, settings, the Cubby Library, and a developer API (`secret_drawer_cubbies` filter, `window.SecretDrawer`, document events).
+
 = 0.1.0 =
-* Initial release: secret-word trigger, launcher drawer with right and bottom positions, per-user Notes / Quick Links / Notifications / Levers cubbies, cascading pop-out panels, settings, the Cubby Library, and a developer API (`secret_drawer_cubbies` filter, `window.SecretDrawer`, document events).
+* Development releases (GitHub only).
 
 == Upgrade Notice ==
 
-= 0.1.0 =
+= 1.0.0 =
 First release.
