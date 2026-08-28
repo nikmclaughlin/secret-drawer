@@ -10,6 +10,13 @@ Type the secret word on any wp-admin page and a drawer slides in from the
 edge: your notes, your quick links, site notifications — whatever you've
 tucked away. Nobody else sees it. Nobody else knows it's there.
 
+## Screenshots
+
+![The launcher drawer, tucked against the right edge.](.wordpress.org/screenshot-1.png)
+![A Notes cubby popped out beside it, with an open editor.](.wordpress.org/screenshot-2.png)
+![Drawer settings: secret word, roles, position, and the Cubby Library.](.wordpress.org/screenshot-3.png)
+![The bottom-sheet variant, with cubby panels rising from its edge.](.wordpress.org/screenshot-4.png)
+
 ## Requirements
 
 - WordPress 6.4+
