@@ -2,9 +2,6 @@
 
 A hidden drawer for your wp-admin. Only those with secret knowledge can access its riches. Who knows what's inside?
 
-> **Status:** in early development (0.1.0). See [PLAN.md](PLAN.md) for the
-> full implementation plan and roadmap.
-
 Type the secret word on any wp-admin page and the secret drawer appears! Fill it with your notes, links, busts of Socrates, or your own custom cubbies. Nobody else sees it. Nobody else knows it's there.
 
 ## Try it in WordPress Playground
