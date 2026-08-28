@@ -9,11 +9,12 @@ Type the secret word on any wp-admin page and the secret drawer appears! Fill it
 
 ## Try it in WordPress Playground
 
-**[▶ Launch the live demo](https://playground.wordpress.net/?plugin=https%3A%2F%2Fgithub.com%2Fnikmclaughlin%2Fsecret-drawer%2Freleases%2Flatest%2Fdownload%2Fsecret-drawer.zip)**
+[![Try it in WordPress Playground](https://raw.githubusercontent.com/adamziel/playground-preview/refs/heads/trunk/assets/playground-preview-button.svg)](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2Fnikmclaughlin%2Fsecret-drawer%2Fmain%2Fplayground%2Fblueprint.json)
 
-The demo installs the latest release into a throwaway WordPress site.
-When it loads, type the default secret word **`hellodolly`** anywhere on
-an admin screen (outside a text field) and the drawer will slide in. 🤫
+The demo boots a throwaway WordPress site, installs the latest release,
+logs you in as admin, and drops you straight into **wp-admin**.
+Type the default secret word **`hellodolly`** anywhere on an admin screen
+(outside a text field) and the drawer will slide in. 🤫
 
 ## Requirements
 
