@@ -85,6 +85,11 @@ final class Secret_Drawer_Cubby_Registry {
 				'icon'        => 'dashicons-controls-play',
 				'description' => __( 'One-click actions on the site. Pull with care.', 'secret-drawer' ),
 			),
+			'socrates'      => array(
+				'title'       => __( 'Socrates', 'secret-drawer' ),
+				'icon'        => 'dashicons-universal-access-alt',
+				'description' => __( 'The unexamined admin is not worth running.', 'secret-drawer' ),
+			),
 		);
 
 		/**
@@ -178,6 +183,8 @@ final class Secret_Drawer_Cubby_Registry {
 				return Secret_Drawer_Cubby_Notifications::get_html();
 			case 'levers':
 				return Secret_Drawer_Cubby_Levers::get_html();
+			case 'socrates':
+				return Secret_Drawer_Cubby_Socrates::get_html();
 		}
 
 		return '';

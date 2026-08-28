@@ -49,6 +49,7 @@ final class Secret_Drawer_Plugin {
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-links.php';
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-notifications.php';
 		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-levers.php';
+		require_once SECRET_DRAWER_DIR . 'includes/cubbies/class-cubby-socrates.php';
 		Secret_Drawer_Cubby_Notifications::hooks();
 
 		require_once SECRET_DRAWER_DIR . 'includes/class-cubby-registry.php';

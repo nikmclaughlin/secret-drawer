@@ -784,3 +784,26 @@
 .sd-lever-desc {
 	margin: -6px 0 0;
 }
+
+/* Socrates cubby: the bust, framed quietly. */
+.sd-socrates {
+	margin: 0;
+	text-align: center;
+}
+
+.sd-socrates img {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-width: 240px;
+	margin: 0 auto 8px;
+	border-radius: 6px;
+	border: 1px solid var(--sd-border);
+}
+
+.sd-socrates figcaption {
+	font-size: 12px;
+	font-style: italic;
+	color: var(--sd-muted, #666);
+	line-height: 1.4;
+}
