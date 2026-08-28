@@ -52,6 +52,12 @@ class Secret_Drawer_Assets {
 		);
 
 		wp_localize_script( 'secret-drawer', 'SECRET_DRAWER', self::config( $settings ) );
+
+		// Let JS translation bundles (languages/secret-drawer-*.json) override
+		// the localized strings at runtime.
+		if ( function_exists( 'wp_set_script_translations' ) ) {
+			wp_set_script_translations( 'secret-drawer', 'secret-drawer', SECRET_DRAWER_DIR . 'languages' );
+		}
 	}
 
 	/**
@@ -116,6 +122,21 @@ class Secret_Drawer_Assets {
 				'emptyCubby'  => __( 'Nothing here yet.', 'secret-drawer' ),
 				'emptyNotes'  => __( 'No notes yet. Toss one in.', 'secret-drawer' ),
 				'loadError'   => __( 'Could not load this cubby.', 'secret-drawer' ),
+				'saving'      => __( 'Saving…', 'secret-drawer' ),
+				'saveFailed'  => __( 'Save failed — will retry on next edit.', 'secret-drawer' ),
+				'add'         => __( 'Add', 'secret-drawer' ),
+				'update'      => __( 'Update', 'secret-drawer' ),
+				'deleteNote'  => __( 'Delete note', 'secret-drawer' ),
+				'removeLabel' => __( 'Remove', 'secret-drawer' ),
+				'emptyDrawer' => __( 'This drawer is empty. Add something from the library.', 'secret-drawer' ),
+				'copied'      => __( 'Copied ✓', 'secret-drawer' ),
+				'leverDone'   => __( 'Done', 'secret-drawer' ),
+				'leverEmpty'  => __( 'nothing to delete', 'secret-drawer' ),
+				// translators: %d is the number of posts deleted.
+				'nPosts'      => __( '%d posts', 'secret-drawer' ),
+				// translators: %d is the number of comments deleted.
+				'nComments'   => __( '%d comments', 'secret-drawer' ),
+				'leverFail'   => __( 'Could not pull that lever.', 'secret-drawer' ),
 			),
 		);
 	}

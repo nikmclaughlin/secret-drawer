@@ -16,6 +16,7 @@
 	var h = window.wp.element.createElement;
 	var createRoot = window.wp.element.createRoot;
 	var C = window.wp.components || {};
+	var S = config.strings || {};
 	var ToggleControl = C.ToggleControl;
 	var SelectControl = C.SelectControl;
 	var TextControl = C.TextControl;
@@ -230,7 +231,7 @@
 				var url = config.siteUrl || window.location.origin;
 				if ( navigator.clipboard && navigator.clipboard.writeText ) {
 					navigator.clipboard.writeText( url ).then( function () {
-						snackbar( 'Copied ✓' );
+						snackbar( S.copied || 'Copied ✓' );
 					}, function () {
 						snackbar( url );
 					} );
@@ -261,19 +262,19 @@
 				var parts = [];
 				if ( data && data.result ) {
 					if ( data.result.deleted_posts ) {
-						parts.push( data.result.deleted_posts + ' posts' );
+						parts.push( ( S.nPosts || '%d posts' ).replace( '%d', data.result.deleted_posts ) );
 					}
 					if ( data.result.deleted_comments ) {
-						parts.push( data.result.deleted_comments + ' comments' );
+						parts.push( ( S.nComments || '%d comments' ).replace( '%d', data.result.deleted_comments ) );
 					}
 					if ( ! parts.length ) {
-						parts.push( 'nothing to delete' );
+						parts.push( S.leverEmpty || 'nothing to delete' );
 					}
 				}
-				snackbar( ( data && data.ok ? 'Done' : 'Done' ) + ( parts.length ? ' — ' + parts.join( ', ' ) : '' ) );
+				snackbar( ( data && data.ok ? ( S.leverDone || 'Done' ) : ( S.leverDone || 'Done' ) ) + ( parts.length ? ' — ' + parts.join( ', ' ) : '' ) );
 			} ).catch( function () {
 				btn.disabled = false;
-				snackbar( 'Could not pull that lever.' );
+				snackbar( S.leverFail || 'Could not pull that lever.' );
 			} );
 		} );
 	}
@@ -313,10 +314,20 @@
 			String( content || '' ).replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( /"/g, '&quot;' ) +
 			'">' + preview + '</button>' +
 			'<span class="sd-row-actions">' +
-			'<button type="button" class="sd-icon-button" data-sd-note-delete="' + safeId + '" aria-label="Delete note">✕</button>' +
+			'<button type="button" class="sd-icon-button" data-sd-note-delete="' + safeId + '" aria-label="' + escAttr( S.deleteNote ) + '">✕</button>' +
 			'</span>' +
 			'</li>'
 		);
+	}
+
+	/** Attribute-safe escaping for client-built markup (mirrors esc_attr). */
+	function escAttr( value ) {
+		return String( value == null ? '' : value )
+			.replace( /&/g, '&amp;' )
+			.replace( /</g, '&lt;' )
+			.replace( />/g, '&gt;' )
+			.replace( /"/g, '&quot;' )
+			.replace( /'/g, '&#039;' );
 	}
 
 	/** Keep the list row in sync with edited content (stored copy + preview). */
@@ -388,13 +399,13 @@
 					throw new Error( 'status ' + res.status );
 				}
 				if ( indicator.isConnected ) {
-					indicator.textContent = 'Saved ✓';
+					indicator.textContent = S.saved || 'Saved ✓';
 				}
 				syncNoteRow( listMount, record.noteId, field.value );
 			} ).catch( function () {
 				record.dirty = true;
 				if ( indicator.isConnected ) {
-					indicator.textContent = 'Save failed — will retry on next edit.';
+					indicator.textContent = S.saveFailed || 'Save failed — will retry on next edit.';
 				}
 			} );
 		}
@@ -402,7 +413,7 @@
 		field.addEventListener( 'input', function () {
 			record.dirty = true;
 			if ( indicator.isConnected ) {
-				indicator.textContent = 'Saving…';
+				indicator.textContent = S.saving || 'Saving…';
 			}
 			if ( record.timer ) {
 				window.clearTimeout( record.timer );
@@ -592,7 +603,7 @@
 			var addBtn = mount.querySelector( '[data-sd-link-add]' );
 			var cancelBtn = mount.querySelector( '[data-sd-link-cancel]' );
 			if ( addBtn ) {
-				addBtn.textContent = 'edit' === mode ? 'Update' : 'Add';
+				addBtn.textContent = 'edit' === mode ? ( S.update || 'Update' ) : ( S.add || 'Add' );
 			}
 			if ( cancelBtn ) {
 				cancelBtn.hidden = 'edit' !== mode;
@@ -1379,11 +1390,11 @@
 						h( 'button', {
 							className: 'sd-icon-button',
 							type: 'button',
-							'aria-label': 'Remove ' + ( meta.title || id ),
+							'aria-label': ( S.removeLabel || 'Remove' ) + ' ' + ( meta.title || id ),
 							onClick: function () { toggleCubby( id, false ); }
 						}, '−' )
 					);
-				} ) : h( 'p', { className: 'sd-muted' }, 'This drawer is empty. Add something from the library.' ) ),
+				} ) : h( 'p', { className: 'sd-muted' }, S.emptyDrawer || 'This drawer is empty. Add something from the library.' ) ),
 
 				h( 'h3', null, S.library ),
 				Object.keys( config.catalog ).filter( function ( id ) {
@@ -1398,7 +1409,7 @@
 						h( 'button', {
 							className: 'sd-icon-button',
 							type: 'button',
-							'aria-label': 'Add ' + meta.title,
+							'aria-label': ( S.add || 'Add' ) + ' ' + meta.title,
 							onClick: function () { toggleCubby( id, true ); }
 						}, '+' )
 					);
