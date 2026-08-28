@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (must match plugin Version in secret-drawer.php)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Verify tag exists and matches the plugin version
+        id: verify
+        run: |
+          VERSION=$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*//p' secret-drawer.php | head -1)
+          STABLE=$(sed -n 's/^Stable tag:[[:space:]]*//p' readme.txt | head -1)
+          echo "Plugin version: $VERSION  ·  Stable tag: $STABLE  ·  Input tag: ${{ inputs.tag }}"
+          if [ "$VERSION" != "${{ inputs.tag }}" ]; then
+            echo "::error::Tag ${{ inputs.tag }} does not match plugin Version ($VERSION). Bump the header, commit, then re-run."
+            exit 1
+          fi
+          if [ -n "$STABLE" ] && [ "$STABLE" != "$VERSION" ]; then
+            echo "::error::readme.txt Stable tag ($STABLE) does not match plugin Version ($VERSION)."
+            exit 1
+          fi
+          git fetch --tags --force
+          if git cat-file -e "refs/tags/${{ inputs.tag }}" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag (if new)
+        if: steps.verify.outputs.exists == 'false'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ inputs.tag }}" -m "Secret Drawer ${{ inputs.tag }}"
+          git push origin "${{ inputs.tag }}"
+
+      - name: Build zip
+        run: |
+          chmod +x bin/build.sh
+          ./bin/build.sh
+          # Normalize the artifact name for this tag (build.sh names it by header version).
+          test -f "build/secret-drawer-${{ inputs.tag }}.zip" || mv build/secret-drawer-*.zip "build/secret-drawer-${{ inputs.tag }}.zip"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Secret Drawer ${{ inputs.tag }}
+          generate_release_notes: true
+          files: build/secret-drawer-${{ inputs.tag }}.zip
