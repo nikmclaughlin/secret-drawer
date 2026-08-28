@@ -53,6 +53,9 @@ jobs:
           ./bin/build.sh
           # Normalize the artifact name for this tag (build.sh names it by header version).
           test -f "build/secret-drawer-${{ inputs.tag }}.zip" || mv build/secret-drawer-*.zip "build/secret-drawer-${{ inputs.tag }}.zip"
+          # The Playground demo in README links to a stable asset name on
+          # /releases/latest/download/ — publish an unversioned copy too.
+          cp "build/secret-drawer-${{ inputs.tag }}.zip" build/secret-drawer.zip
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -60,4 +63,7 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: Secret Drawer ${{ inputs.tag }}
           generate_release_notes: true
-          files: build/secret-drawer-${{ inputs.tag }}.zip
+          files: |
+            build/secret-drawer-${{ inputs.tag }}.zip
+            build/secret-drawer.zip
+          fail_on_unmatched_files: true
