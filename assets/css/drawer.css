@@ -75,6 +75,15 @@
 	.sd-drawer--right {
 		width: 100vw !important;
 	}
+
+	/* Pop-out panels can't be 320px wide on a phone: fill the viewport.
+	   JS keeps its arithmetic (PANEL_WIDTH) for stacking math, so the
+	   column stays sane while the panel itself spans the screen. */
+	.sd-panel {
+		width: 100vw;
+		max-width: 100vw;
+		left: 0 !important;
+	}
 }
 
 /* Header */
