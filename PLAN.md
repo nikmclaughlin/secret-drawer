@@ -569,6 +569,33 @@ on a clean WP + 2025 theme.
   find it. (It's just a second, smaller notes field.)
 - Sound toggle: tiny paper-slide `woosh.mp3`, off by default, obviously.
 
+### M6 — Desk-odds-and-ends cubby pack (planned next, before any of the above)
+
+Nik picked four cubbies for the starting library — all client-side except
+Site Vitals. Build order: dice → vitals → passphrase → timer.
+
+- **🎲 Dice roller** — pick d6 / d12 / d20 (plus d4/d8/d100 for the D&D
+  crowd), click Roll, tumble animation, random result. Purely client-side
+  (`Math.random`); CSS tumble honoring `prefers-reduced-motion`; a running
+  "last 5 rolls" line so it feels alive. No REST endpoint needed.
+- **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
+  debug on/off, active theme. Server-rendered via the registry (one cached
+  query), like Site Health's CliffNotes.
+- **🔐 Passphrase generator** — random words + numbers, length picker,
+  one-click copy. Client-side only; nothing leaves the browser (this is a
+  security-adjacent plugin — the passphrase must never hit the server).
+- **⏱️ Focus timer** — 25-minute pomodoro in a panel. When the timer
+  finishes it re-opens its own cubby panel if closed and plays an
+  attention-grabby-but-not-overdone finish animation. Timer state is
+  cleared when the whole drawer closes (assume the user doesn't want it).
+  Careful bits: countdown must survive panel close (state lives in the
+  drawer, not the panel element), and the finish pulse respects
+  reduced-motion.
+
+**AC:** the four cubbies appear in the Cubby library, render in right and
+bottom modes, respect reduced-motion for all animations, and the passphrase
+is provably never sent to the server (no REST call on generate/copy).
+
 ---
 
 ## 13. Distribution strategy
