@@ -1,21 +1,11 @@
 # Secret Drawer 🤫
 
-A hidden drawer in wp-admin, unlocked by a secret word. Silly to find,
-genuinely useful to have.
+A hidden drawer for your wp-admin. Only those with secret knowledge can access its riches. Who knows what's inside?
 
 > **Status:** in early development (0.1.0). See [PLAN.md](PLAN.md) for the
 > full implementation plan and roadmap.
 
-Type the secret word on any wp-admin page and a drawer slides in from the
-edge: your notes, your quick links, site notifications — whatever you've
-tucked away. Nobody else sees it. Nobody else knows it's there.
-
-## Screenshots
-
-![The launcher drawer, tucked against the right edge.](.wordpress.org/screenshot-1.png)
-![A Notes cubby popped out beside it, with an open editor.](.wordpress.org/screenshot-2.png)
-![Drawer settings: secret word, roles, position, and the Cubby Library.](.wordpress.org/screenshot-3.png)
-![The bottom-sheet variant, with cubby panels rising from its edge.](.wordpress.org/screenshot-4.png)
+Type the secret word on any wp-admin page and the secret drawer appears! Fill it with your notes, links, busts of Socrates, or your own custom cubbies. Nobody else sees it. Nobody else knows it's there.
 
 ## Requirements
 
