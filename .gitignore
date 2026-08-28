@@ -3,4 +3,6 @@ node_modules/
 vendor/
 *.log
 .idea/
-.vscode/Socrates Louvre.jpg
+.vscode/
+build/
+Socrates Louvre.jpg
