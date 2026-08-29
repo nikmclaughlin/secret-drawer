@@ -11,10 +11,14 @@
 Nik picked four cubbies for the starting library — all client-side except
 Site Vitals. Build order: dice → vitals → passphrase → timer.
 
-- **🎲 Dice roller** — pick d2 / d6 / d12 / d20, click Roll, tumble
-  animation, random result. Purely client-side (`Math.random`); CSS tumble
-  honoring `prefers-reduced-motion`; a running "last 5 rolls" line so it
-  feels alive. No REST endpoint needed.
+- ✅ **🎲 Dice roller** — SHIPPED. Registered as the `dice` cubby. Picker is
+  a piped radio chip group (d2/d6/d12/d20, keyboard-focusable), Roll button
+  decides instantly via Math.random; the 🎲 face tumbles in CSS
+  (`sd-dice-tumble`, skipped under `prefers-reduced-motion`) and the number
+  settles ~650ms later. Last five rolls persist in localStorage
+  (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2".
+  No REST endpoint; dashicons has no die, so the launcher card uses an
+  emoji glyph class (`sd-dice-emoji`).
 - **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
   debug on/off, active theme. Server-rendered via the registry (one cached
   query), like Site Health's CliffNotes.

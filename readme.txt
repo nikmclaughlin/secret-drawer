@@ -28,6 +28,7 @@ Nobody else sees it. Nobody else knows it's there.
 * **Quick Links** — your personal jump list to the admin screens you actually use.
 * **Notifications** — truthful counts of things needing attention, with deep links.
 * **Levers** — one-click actions like emptying the trash, with confirmations on anything destructive.
+* **Dice** — a d2, d6, d12, or d20 with a tumble and your last five rolls. No server involved.
 * **The Cubby Library** — enable, disable, and (with one filter) add your own cubbies.
 
 **A few design promises**

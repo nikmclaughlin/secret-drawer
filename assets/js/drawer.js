@@ -196,8 +196,101 @@
 			wireLinks( mount );
 		} else if ( 'levers' === id ) {
 			wireLevers( mount );
+		} else if ( 'dice' === id ) {
+			wireDice( mount );
 		}
 		// Notifications is display-only.
+	}
+
+	/**
+	 * Dice: delegated click handling for the picker and roll button.
+	 * Entirely client-side — Math.random produces the roll, CSS tumbles
+	 * the face, localStorage keeps the last five rolls. No REST calls.
+	 */
+	function wireDice( mount ) {
+		if ( mount.dataset.diceWired ) {
+			return;
+		}
+		mount.dataset.diceWired = '1';
+
+		// Same check the drawer chrome uses for confetti/slides.
+		function reduceMotion() {
+			return !!( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches );
+		}
+
+		// The last key is the newest roll; oldest drops off the front.
+		var historyKey = STORE_KEY + '.dice.last5';
+		var history = [];
+		try {
+			history = JSON.parse( window.localStorage.getItem( historyKey ) || '[]' );
+		} catch ( e ) {
+			history = []; // Corrupt entry — start fresh.
+		}
+		if ( ! ( history instanceof Array ) ) {
+			history = [];
+		}
+
+		var maxEl = mount.querySelector( '.sd-dice-max' );
+		var valueEl = mount.querySelector( '.sd-dice-value' );
+		var faceEl = mount.querySelector( '.sd-dice-face' );
+		var listEl = mount.querySelector( '.sd-dice-roll-list' );
+
+		function currentSides() {
+			var checked = mount.querySelector( '.sd-dice-sides:checked' );
+			return checked ? parseInt( checked.value, 10 ) || 20 : 20;
+		}
+
+		function paintHistory() {
+			if ( listEl ) {
+				listEl.textContent = history.length ? history.join( ' · ' ) : '—';
+			}
+		}
+
+		mount.addEventListener( 'click', function ( event ) {
+			var btn = event.target.closest( '[data-sd-dice-roll]' );
+			if ( ! btn || btn.disabled ) {
+				return;
+			}
+
+			var sides = currentSides();
+			var result = 1 + Math.floor( Math.random() * sides );
+
+			if ( maxEl ) {
+				maxEl.textContent = ( S.diceOf || 'of %d' ).replace( '%d', String( sides ) );
+			}
+
+			// Face tumbles while the roll is decided instantly — no await game.
+			if ( faceEl && ! reduceMotion() ) {
+				faceEl.classList.remove( 'sd-dice-tumble' );
+				// Force a style flush so the animation can restart.
+				void faceEl.offsetWidth;
+				faceEl.classList.add( 'sd-dice-tumble' );
+			}
+
+			// The number lands after a beat, like it settled.
+			window.setTimeout( function () {
+				if ( valueEl ) {
+					valueEl.textContent = String( result );
+				}
+				history.push( result );
+				if ( history.length > 5 ) {
+					history = history.slice( -5 );
+				}
+				try {
+					window.localStorage.setItem( historyKey, JSON.stringify( history ) );
+				} catch ( e ) {
+					/* private mode etc. — history just won't persist */
+				}
+				paintHistory();
+			}, reduceMotion() ? 0 : 650 );
+
+			// Announce immediately for screen readers regardless of timing.
+			if ( valueEl ) {
+				valueEl.setAttribute( 'data-value', String( result ) );
+			}
+		} );
+
+		paintHistory();
 	}
 
 	/**

@@ -137,6 +137,10 @@ class Secret_Drawer_Assets {
 				// translators: %d is the number of comments deleted.
 				'nComments'   => __( '%d comments', 'secret-drawer' ),
 				'leverFail'   => __( 'Could not pull that lever.', 'secret-drawer' ),
+				'roll'        => __( 'Roll', 'secret-drawer' ),
+				'lastFive'    => __( 'Last five', 'secret-drawer' ),
+				// translators: %d is the number of sides on the chosen die.
+				'diceOf'      => __( 'of %d', 'secret-drawer' ),
 			),
 		);
 	}

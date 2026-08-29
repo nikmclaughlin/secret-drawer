@@ -91,6 +91,11 @@ final class Secret_Drawer_Cubby_Registry {
 				'icon'        => 'dashicons-universal-access-alt',
 				'description' => __( 'The unexamined admin is not worth running.', 'secret-drawer' ),
 			),
+			'dice'          => array(
+				'title'       => __( 'Dice', 'secret-drawer' ),
+				'icon'        => 'sd-dice-emoji',
+				'description' => __( 'A d2, d6, d12, or d20 with a tumble and a short memory.', 'secret-drawer' ),
+			),
 		);
 
 		/**
@@ -186,6 +191,8 @@ final class Secret_Drawer_Cubby_Registry {
 				return Secret_Drawer_Cubby_Levers::get_html();
 			case 'socrates':
 				return Secret_Drawer_Cubby_Socrates::get_html();
+			case 'dice':
+				return Secret_Drawer_Cubby_Dice::get_html();
 		}
 
 		return '';

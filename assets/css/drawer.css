@@ -752,7 +752,8 @@
 	.sd-drawer,
 	.sd-panel,
 	.sd-ghost,
-	.sd-toast {
+	.sd-toast,
+	.sd-dice-tumble {
 		transition: none;
 		animation: none;
 		opacity: 1;
@@ -806,4 +807,154 @@
 	font-style: italic;
 	color: var(--sd-muted, #666);
 	line-height: 1.4;
+}
+
+/* The dice card icon: dashicons has no die, so the card wears the emoji.
+ * (Same slot as a dashicon class on the cubby meta; the font stack just
+ * hands the glyph to the system emoji font.) */
+.sd-card-icon.sd-dice-emoji::before {
+	content: '🎲';
+	font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+/* Dice cubby: pick a die, roll it, remember five. */
+.sd-dice {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.sd-dice-picker {
+	border: 1px solid var(--sd-border);
+	border-radius: 4px;
+	padding: 8px 10px;
+	margin: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.sd-dice-legend {
+	padding: 0 6px;
+	font-size: 12px;
+	color: #757575;
+}
+
+/* Piped radio: the input stays in the tab order and keyboard-selectable,
+ * the visible chip is its styled sibling. */
+.sd-dice-chip {
+	position: relative;
+	display: inline-flex;
+}
+
+.sd-dice-chip input {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.sd-dice-chip-face {
+	display: inline-block;
+	padding: 4px 12px;
+	border: 1px solid var(--sd-border);
+	border-radius: 999px;
+	background: #fff;
+	font-size: 13px;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease,
+		border-color 120ms ease;
+}
+
+.sd-dice-chip:hover .sd-dice-chip-face {
+	border-color: var(--sd-accent);
+}
+
+.sd-dice-chip input:checked + .sd-dice-chip-face {
+	background: var(--sd-accent);
+	border-color: var(--sd-accent);
+	color: #fff;
+}
+
+.sd-dice-chip input:focus-visible + .sd-dice-chip-face {
+	box-shadow:
+		0 0 0 2px #fff,
+		0 0 0 4px var(--sd-accent);
+}
+
+.sd-dice-actions {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.sd-dice-result {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.6ch;
+	margin: 0;
+	background: #fff;
+	border: 1px solid var(--sd-border);
+	border-radius: 6px;
+	padding: 12px 8px;
+	min-height: 48px;
+}
+
+.sd-dice-face {
+	font-size: 22px;
+	line-height: 1;
+}
+
+.sd-dice-value {
+	font-size: 32px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	min-width: 1.6ch;
+}
+
+.sd-dice-max {
+	font-size: 12px;
+	color: #757575;
+}
+
+.sd-dice-history {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	margin: 0;
+}
+
+.sd-dice-roll-list {
+	font-variant-numeric: tabular-nums;
+}
+
+/* The tumble: two spins with a hop. Short enough to restart on every
+ * click without feeling like it interrupts; JS re-adds the class to
+ * replay it. */
+.sd-dice-tumble {
+	display: inline-block;
+	animation: sd-dice-tumble 650ms cubic-bezier(0.2, 0.7, 0.3, 1) 1;
+	color: var(--sd-accent);
+}
+
+@keyframes sd-dice-tumble {
+	0% {
+		transform: translateY(0) rotate(0deg) scale(1);
+	}
+	25% {
+		transform: translateY(-14px) rotate(180deg) scale(1.15);
+	}
+	50% {
+		transform: translateY(0) rotate(360deg) scale(1);
+	}
+	75% {
+		transform: translateY(-7px) rotate(540deg) scale(1.1);
+	}
+	100% {
+		transform: translateY(0) rotate(720deg) scale(1);
+	}
 }
