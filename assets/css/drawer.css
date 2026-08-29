@@ -1086,3 +1086,69 @@
 .sd-vital--splitwarn {
 	border-inline-start: 3px solid #dba617;
 }
+
+/* Passphrase: word picker, readout, copy actions. Client-only cubby;
+   the note line carries the "never leaves your browser" promise. */
+.sd-pass {
+	display: grid;
+	gap: 12px;
+}
+.sd-pass-row {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+.sd-pass-field {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.sd-pass-field-label {
+	font-size: 12px;
+	color: #50575e;
+}
+.sd-pass-count {
+	min-height: 30px;
+}
+.sd-pass-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+.sd-pass-result {
+	margin: 0;
+	text-align: center;
+}
+.sd-pass-readout {
+	display: inline-block;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.5;
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 12px;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	text-align: center;
+}
+.sd-pass-bits {
+	display: block;
+	margin-top: 6px;
+	font-size: 12px;
+	color: #50575e;
+}
+.sd-pass-note.sd-muted {
+	margin: 0;
+	font-size: 12px;
+	text-align: center;
+}
+
+/* Warning tone for the snackbar — clipboard/blocking failures etc.
+   Amber fills the pill and flips the text dark so contrast holds. */
+.sd-toast--warn {
+	background: #dba617;
+	color: #2c2305;
+}

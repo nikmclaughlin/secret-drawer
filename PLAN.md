@@ -40,6 +40,18 @@ Site Vitals. Build order: dice → vitals → passphrase → timer.
   Filterable via `secret_drawer_vitals`; hourly transient (schema-
   keyed, bump `CACHE_SCHEMA` when the row shape changes) except the
   clock; display-only (no `wireCubby()`, no REST). Launcher icon 🩺.
+- ✅ **🔐 Passphrase** — SHIPPED. Client-only cubby #2: 3–6 word picker
+  + "Add number" toggle; words drawn **without replacement** from a
+  256-word list (8 bits/word — verified exactly 256 unique entries,
+  one dup caught and fixed in review) + optional two-digit suffix
+  (≈6.6 bits), via `crypto.getRandomValues`; the readout shows an
+  approximate bit count and the note states the promise: generated in
+  your browser, **never sent anywhere** — no REST, no storage at all,
+  and the JS wiring block contains no fetch() to contradict it.
+  Copy via clipboard API (denied/no-API failures show an amber warn
+  snackbar: "Copy failed — couldn’t access the clipboard." —
+  `sd-toast--warn`, `role="alert"`), honest degradation with
+  a translated message if crypto is unavailable. Launcher icon 🔐.
 - **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
   debug on/off, active theme. Server-rendered via the registry (one cached
   query), like Site Health's CliffNotes.

@@ -198,6 +198,8 @@
 			wireLevers( mount );
 		} else if ( 'dice' === id ) {
 			wireDice( mount );
+		} else if ( 'passphrase' === id ) {
+			wirePassphrase( mount );
 		}
 		// Notifications and vitals are display-only.
 	}
@@ -294,6 +296,129 @@
 	}
 
 	/**
+	 * Passphrase: client-only generation via crypto.getRandomValues.
+	 * Server-rendered markup meets it here; no REST call anywhere in
+	 * this function — the promise printed on the card is backed by this
+	 * block containing no fetch() at all.
+	 *
+	 * A 256-word list gives a clean 8 bits per word; the optional
+	 * two-digit suffix adds about 6.6 more. Words are drawn without
+	 * replacement from fresh bytes for every passphrase.
+	 */
+	var PASS_WORDS = [
+		'time','year','people','way','day','man','thing','woman','life','child','world','school','state','family','student','group',
+		'country','problem','hand','part','place','case','week','company','system','program','question','work','government','number','night','point',
+		'home','water','room','mother','area','money','story','fact','month','lot','right','study','book','eye','job','word',
+		'business','issue','side','kind','head','house','service','friend','father','power','hour','game','line','end','member','law',
+		'car','city','name','team','minute','idea','body','back','parent','face','level','office','door','health','person','art',
+		'morning','reason','research','air','teacher','force','education','foot','boy','sea','road','dog','chair','sun','key','fire',
+		'hill','cake','moon','rain','wind','ship','snow','corn','bread','song','king','star','bird','farm','gold','fish',
+		'tree','lamp','cup','box','ring','pen','map','leaf','wave','rock','bell','coat','card','gift','town','band',
+		'river','beach','train','plane','horse','sheep','cloud','storm','grass','stone','brick','glass','paper','steel','cloth','fiber',
+		'north','south','east','west','summer','winter','spring','autumn','dawn','dusk','noon','midnight','thunder','frost','mist','haze',
+		'apple','grape','lemon','melon','olive','wheat','cream','honey','milk','tea','coffee','sugar','salt','pepper','onion','carrot',
+		'doctor','lawyer','pilot','sailor','farmer','baker','barber','dancer','singer','writer','painter','player','brother','sister','uncle','cousin',
+		'garden','forest','desert','valley','meadow','canyon','jungle','shore','reef','cave','cliff','dune','pond','lake','marsh','swamp',
+		'anchor','sail-boat','harbor','island','beacon','lagoon','prairie','tundra','summit','canyon-valley','oasis','delta','estuary','fjord','glacier','ridge',
+		'heart','soul','mind','dream','hope','trust','truth','laugh','smile','wink','chime','echo','shadow','spark','glow','flame',
+		'drum','horn','flute','fiddle','tango','waltz','tempo','opera','chorus','melody','rhythm','riddle','puzzle','story-teller','legend','myth'
+	];
+
+	/**
+	 * Passphrase: delegated click handling for generate/copy buttons.
+	 * Generation is crypto.getRandomValues in the browser; nothing is
+	 * stored and nothing is sent — no REST calls, no usermeta, no
+	 * localStorage.
+	 */
+	function wirePassphrase( mount ) {
+		if ( mount.dataset.passWired ) {
+			return;
+		}
+		mount.dataset.passWired = '1';
+
+		var readout = mount.querySelector( '.sd-pass-readout' );
+		var bitsEl = mount.querySelector( '.sd-pass-bits' );
+		var countEl = mount.querySelector( '.sd-pass-count' );
+		var numEl = mount.querySelector( '.sd-pass-number' );
+
+		// 8 bits per word; a 10–99 suffix is log2(90) ≈ 6.6 bits.
+		function entropyBits( words, withNumber ) {
+			return Math.round( 8 * words + ( withNumber ? 6.6 : 0 ) );
+		}
+
+		function regenerate() {
+			if ( ! ( window.crypto && window.crypto.getRandomValues ) ) {
+				if ( readout ) {
+					readout.textContent = S.passNoCrypto || '—';
+				}
+				return;
+			}
+
+			var words = Math.max( 3, Math.min( 6, parseInt( countEl && countEl.value, 10 ) || 4 ) );
+			var withNumber = !!( numEl && numEl.checked );
+			var draws = words + ( withNumber ? 1 : 0 );
+			var bytes = new Uint8Array( draws );
+			window.crypto.getRandomValues( bytes );
+
+			// Draw without replacement so one passphrase never repeats a word.
+			var pool = PASS_WORDS.slice();
+			var picked = [];
+			var i, idx;
+			for ( i = 0; i < words; i++ ) {
+				idx = bytes[ i ] % pool.length; // bias ≤ ~0.4% on short pools — acceptable at 8 bits/word.
+				picked.push( pool.splice( idx, 1 )[ 0 ] );
+			}
+
+			var pass = picked.join( '-' );
+			if ( withNumber ) {
+				pass += '-' + ( 10 + ( bytes[ words ] % 90 ) );
+			}
+
+			if ( readout ) {
+				readout.textContent = pass;
+			}
+			if ( bitsEl ) {
+				bitsEl.textContent = '≈' + entropyBits( words, withNumber ) + ' bits';
+			}
+		}
+
+		mount.addEventListener( 'click', function ( event ) {
+			if ( event.target.closest( '[data-sd-pass-regen]' ) ) {
+				regenerate();
+				return;
+			}
+
+			if ( event.target.closest( '[data-sd-pass-copy]' ) ) {
+				var value = readout ? readout.textContent : '';
+				if ( ! value || '—' === value ) {
+					snackbar( S.passNothing || 'Generate a passphrase first.' );
+					return;
+				}
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					navigator.clipboard.writeText( value ).then( function () {
+						snackbar( S.copied || 'Copied ✓' );
+					}, function () {
+						// API exists but the write was denied.
+						snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
+					} );
+				} else {
+					// No clipboard API at all — typical on plain http.
+					snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
+				}
+			}
+		} );
+
+		// Any control change re-rolls: always in sync with what copy takes.
+		mount.addEventListener( 'change', function ( event ) {
+			if ( event.target.closest( '.sd-pass-count, .sd-pass-number' ) ) {
+				regenerate();
+			}
+		} );
+
+		regenerate(); // Something worth copying from the first glance.
+	}
+
+	/**
 	 * Levers: delegated click handling for [data-sd-lever] buttons.
 	 * `data-confirm` levers ask first; copy levers use the clipboard API;
 	 * everything else POSTs to /cubbies/levers/pull and reports the result.
@@ -326,10 +451,10 @@
 					navigator.clipboard.writeText( url ).then( function () {
 						snackbar( S.copied || 'Copied ✓' );
 					}, function () {
-						snackbar( url );
+						snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
 					} );
 				} else {
-					snackbar( url );
+					snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
 				}
 				return;
 			}
@@ -1307,11 +1432,13 @@
 		restackPanels();
 	}
 
-	/** Dark pill, bottom center — reused for "Saved ✓". */
-	function snackbar( text ) {
+	/** Dark pill, bottom center — reused for "Saved ✓" and warnings. */
+	function snackbar( text, opts ) {
+		opts = opts || {};
 		var el = document.createElement( 'div' );
-		el.className = 'sd-toast';
-		el.setAttribute( 'role', 'status' );
+		el.className = 'sd-toast' + ( opts.tone ? ' sd-toast--' + opts.tone : '' );
+		// Warnings announce assertively; ordinary notices stay polite.
+		el.setAttribute( 'role', 'warn' === opts.tone ? 'alert' : 'status' );
 		el.textContent = text;
 		document.body.appendChild( el );
 		window.setTimeout( function () {

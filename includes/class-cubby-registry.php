@@ -101,6 +101,11 @@ final class Secret_Drawer_Cubby_Registry {
 				'icon'        => '🩺',
 				'description' => __( 'WP/PHP, plugins, cron, HTTPS, and more.', 'secret-drawer' ),
 			),
+			'passphrase'    => array(
+				'title'       => __( 'Passphrase', 'secret-drawer' ),
+				'icon'        => '🔐',
+				'description' => __( 'Random words and a number, made fresh in your browser.', 'secret-drawer' ),
+			),
 		);
 
 		/**
@@ -200,6 +205,8 @@ final class Secret_Drawer_Cubby_Registry {
 				return Secret_Drawer_Cubby_Dice::get_html();
 			case 'vitals':
 				return Secret_Drawer_Cubby_Vitals::get_html();
+			case 'passphrase':
+				return Secret_Drawer_Cubby_Passphrase::get_html();
 		}
 
 		return '';

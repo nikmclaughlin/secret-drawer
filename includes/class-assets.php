@@ -130,6 +130,7 @@ class Secret_Drawer_Assets {
 				'removeLabel' => __( 'Remove', 'secret-drawer' ),
 				'emptyDrawer' => __( 'This drawer is empty. Add something from the library.', 'secret-drawer' ),
 				'copied'      => __( 'Copied ✓', 'secret-drawer' ),
+				'copyFail'    => __( 'Copy failed — couldn’t access the clipboard.', 'secret-drawer' ),
 				'leverDone'   => __( 'Done', 'secret-drawer' ),
 				'leverEmpty'  => __( 'nothing to delete', 'secret-drawer' ),
 				// translators: %d is the number of posts deleted.
@@ -141,6 +142,8 @@ class Secret_Drawer_Assets {
 				'lastFive'    => __( 'Last five', 'secret-drawer' ),
 				// translators: %d is the number of sides on the chosen die.
 				'diceOf'      => __( 'of %d', 'secret-drawer' ),
+				'passNoCrypto'=> __( 'Your browser could not generate one securely.', 'secret-drawer' ),
+				'passNothing' => __( 'Generate a passphrase first.', 'secret-drawer' ),
 			),
 		);
 	}
