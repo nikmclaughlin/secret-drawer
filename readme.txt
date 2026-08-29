@@ -31,6 +31,7 @@ Nobody else sees it. Nobody else knows it's there.
 * **Dice** — a d2, d6, d12, or d20 with a tumble and your last five rolls. No server involved.
 * **Site Vitals** — WordPress, PHP, memory, debug, and theme at a glance, plus autoload size, plugin counts (active | inactive), missed schedules, environment type, HTTPS, object cache, and the site clock.
 * **Passphrase** — random words plus a number, picked with crypto in your browser and copied in one click (nothing is sent anywhere).
+* **Focus timer** — a quiet short countdown (1/5/10/20 presets, 20 default) with pause and resume; it keeps counting if you close its panel, pulses and pops back up when time's up, and resets when the drawer closes.
 * **The Cubby Library** — enable, disable, and (with one filter) add your own cubbies.
 
 **A few design promises**

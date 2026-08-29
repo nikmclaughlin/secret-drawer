@@ -35,7 +35,13 @@ ZIP="$BUILD_DIR/$SLUG-$VERSION.zip"
 # .gitignore where applicable.
 EXCLUDES=(
 	.git .wordpress.org bin build
-	PLAN.md AGENTS.md SECRET-DRAWER-EXTENDING.md README.md .gitignore
+	# Repo-internal docs never ship. Public-facing docs DO ship:
+	# SECRET-DRAWER-EXTENDING.md and skills/create-cubby/ (both serve
+	# self-hosted customizers).
+	PLAN.md AGENTS.md README.md .gitignore
+	# The agent skill SHIPS too: third parties customizing their own copies
+	# can hand it to their assistants, and its smoke harness exercises that
+	# same zip's assets/js/drawer.js.
 	.DS_Store '*.log'
 	# Original 1944px source photo (1.7MB); only the web copy ships.
 	'Socrates Louvre.jpg'

@@ -106,6 +106,11 @@ final class Secret_Drawer_Cubby_Registry {
 				'icon'        => '🔐',
 				'description' => __( 'Random words and a number, made fresh in your browser.', 'secret-drawer' ),
 			),
+			'timer'         => array(
+				'title'       => __( 'Focus timer', 'secret-drawer' ),
+				'icon'        => '⏱️',
+				'description' => __( 'A quiet countdown that remembers itself between panels.', 'secret-drawer' ),
+			),
 		);
 
 		/**
@@ -207,6 +212,8 @@ final class Secret_Drawer_Cubby_Registry {
 				return Secret_Drawer_Cubby_Vitals::get_html();
 			case 'passphrase':
 				return Secret_Drawer_Cubby_Passphrase::get_html();
+			case 'timer':
+				return Secret_Drawer_Cubby_Timer::get_html();
 		}
 
 		return '';

@@ -1,7 +1,8 @@
 # Extending Secret Drawer
 
-Secret Drawer ships with four built-in cubbies — Notes, Quick Links,
-Notifications, and Levers — but the drawer is meant to be extended.
+Secret Drawer ships with nine built-in cubbies — Notes, Quick Links,
+Notifications, Levers, Socrates, Dice, Site Vitals, Passphrase, and
+Focus Timer — but the drawer is meant to be extended.
 This guide shows how other plugins (or your site's own `functions.php`,
 if you insist) add their own cubbies and levers.
 
@@ -143,7 +144,7 @@ document.addEventListener( 'secret-drawer:cubby:shown', ( e ) => {
 
 Paste into a plugin file (or a one-off `wp-content/mu-plugins/` file)
 and the cubby appears in the library — enable it from the drawer's ⚙️
-settings and it becomes a fifth card:
+settings and it becomes another card:
 
 ```php
 <?php
@@ -172,3 +173,18 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 That's the whole AC: a drop-in file, one filter, one render callback —
 and the drawer grows a new cubby with its own card, panel, and REST
 route, with zero changes to Secret Drawer itself.
+
+---
+
+## Need more than a filter callback?
+
+Drop-ins cover server-rendered bodies well. If your cubby needs its own
+client wiring in `drawer.js`, its own REST routes, or anything else that
+means editing Secret Drawer itself, point your coding assistant at
+**`skills/create-cubby/SKILL.md`** in this folder — it walks the full
+recipe the plugin's own cubbies use: shape choice, the user-data /
+session-data / secrets split, i18n, and the load-time smoke test
+(`node skills/create-cubby/smoke-drawer.js`) that proves `drawer.js`
+still runs after your edits. Remember that editing the plugin's files
+means the next Secret Drawer update will overwrite your work — keep a
+real fork.

@@ -50,7 +50,7 @@ secret-drawer/
 │   ├── class-rest-cubbies.php      # Cubby routes
 │   ├── class-cubby-registry.php    # Catalog: filter, normalize, sort, gate
 │   └── cubbies/                    # notes, links, notifications, levers, socrates, dice,
-│                                   #   vitals, passphrase
+│                                   #   vitals, passphrase, timer
 ├── assets/
 │   ├── css/drawer.css              # Single stylesheet
 │   └── js/drawer.js                # wp-components UI, no build step
@@ -111,7 +111,12 @@ Note: routes are `/cubbies/…` — the plan's earlier `/notes`, `/links`,
 stable-sorts by `order`, drops types whose `capability` the current user
 lacks (checked at enqueue **and** at render). Full entry schema, lever
 schema, and a complete drop-in example cubby:
-**`SECRET-DRAWER-EXTENDING.md`**.
+**`SECRET-DRAWER-EXTENDING.md`**. For agents **building a new cubby**,
+follow the step-by-step in **`skills/create-cubby/SKILL.md`** (shape choice,
+data split, i18n, docs sync, the check gate — including why `node --check`
+here needs an exit code, not its log line). The skill also **ships in the
+release zip** alongside the extending doc, so self-hosted site owners can
+hand their own agents the same recipe; keep both public.
 
 JS events (on `document`): `secret-drawer:open`, `secret-drawer:close`,
 `secret-drawer:cubby:shown` (detail `{id}`).
@@ -130,6 +135,7 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | Site Vitals   | WP/PHP versions, memory, WP_DEBUG, theme; autoload size, plugins (active | inactive split card, warns on inactive side at 5+), missed schedules, env type, HTTPS, object cache, live site clock. 1-hour transient (schema-keyed, clock excluded), `secret_drawer_vitals` filter | ✅      |
 | Passphrase    | Random words (3–6) + optional two-digit suffix, ~8 bits/word from a 256-word list, entropy readout; crypto.getRandomValues, **no REST, no storage of any kind**, copy via clipboard API (denied/no-API failures show an amber `copyFail`
       snackbar — new `sd-toast--warn` tone, `role="alert"`). Client-only cubby #2 | ✅      |
+| Focus Timer   | short pomodoro, 1/5/10/20 chips; state machine lives in drawer scope (`timer` object), **survives panel pops** (paint-on-mount via `paintTimer()`), 250ms tick against `endAt` (drift-free, pause-safe); finish = CSS pulse (reduced-motion-safe) + auto re-pop via `showCubby('timer')` + toast; **drawer close resets** (`onClose`). Chips re-pick = reset. No REST, no storage | ✅      |
 
 ## UX & accessibility (as built)
 
@@ -179,7 +185,7 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | M4 Cubby API, registry, levers, extending doc                                       | ✅                                                                     |
 | M5 Polish & release-readiness (i18n audit, `readme.txt`, RTL, Plugin Check, v1.0.0) | ✅ — tagged & released                                                 |
 | CP4 pre-release human pass                                                          | ✅                                                                     |
-| M6 Desk-odds-and-ends cubby pack                                                    | ⏳ in progress — dice ✅, vitals ✅, passphrase ✅; timer pending          |
+| M6 Desk-odds-and-ends cubby pack                                                    | ✅ all four shipped — dice, vitals, passphrase, timer                       |
 | Post-release extras                                                                 | ✅ Socrates cubby, Playground demo, CI release workflow, README revamp |
 
 ## What's planned next

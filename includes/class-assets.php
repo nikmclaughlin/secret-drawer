@@ -144,6 +144,9 @@ class Secret_Drawer_Assets {
 				'diceOf'      => __( 'of %d', 'secret-drawer' ),
 				'passNoCrypto'=> __( 'Your browser could not generate one securely.', 'secret-drawer' ),
 				'passNothing' => __( 'Generate a passphrase first.', 'secret-drawer' ),
+				'timerStart'  => __( 'Start', 'secret-drawer' ),
+				'timerResume' => __( 'Resume', 'secret-drawer' ),
+				'timerDone'   => __( "Time's up — nice focus.", 'secret-drawer' ),
 			),
 		);
 	}

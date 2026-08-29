@@ -753,7 +753,8 @@
 	.sd-panel,
 	.sd-ghost,
 	.sd-toast,
-	.sd-dice-tumble {
+	.sd-dice-tumble,
+	.sd-timer--done .sd-timer-ring {
 		transition: none;
 		animation: none;
 		opacity: 1;
@@ -1151,4 +1152,78 @@
 .sd-toast--warn {
 	background: #dba617;
 	color: #2c2305;
+}
+
+/* Focus timer — ring viewport, chip picker, finish pulse. */
+.sd-timer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	padding: 6px 0 4px;
+}
+.sd-timer-ring {
+	width: 128px;
+	height: 128px;
+	border-radius: 50%;
+	border: 3px solid var(--sd-accent, #3858e9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+}
+.sd-timer--done .sd-timer-ring {
+	animation: sd-timer-pulse 0.65s ease-in-out 4;
+	border-color: #dba617;
+}
+.sd-timer-time {
+	font-size: 30px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+.sd-timer-picker {
+	display: flex;
+	gap: 6px;
+	border: 0;
+	padding: 0;
+	margin: 0;
+}
+.sd-timer-chip input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+.sd-timer-chip span {
+	display: inline-block;
+	padding: 4px 10px;
+	border: 1px solid #c3c4c7;
+	border-radius: 999px;
+	cursor: pointer;
+	font-size: 12px;
+}
+.sd-timer-chip input:checked + span {
+	background: var(--sd-accent, #3858e9);
+	border-color: var(--sd-accent, #3858e9);
+	color: #fff;
+}
+.sd-timer-chip input:focus-visible + span {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: 2px;
+}
+.sd-timer-actions {
+	display: flex;
+	gap: 8px;
+}
+.sd-timer-status {
+	min-height: 1.2em;
+	margin: 0;
+	font-size: 12px;
+	color: var(--sd-muted, #757575);
+}
+@keyframes sd-timer-pulse {
+	0%, 100% { transform: scale(1); }
+	50% { transform: scale(1.06); }
 }

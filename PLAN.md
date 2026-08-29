@@ -16,9 +16,8 @@ Site Vitals. Build order: dice → vitals → passphrase → timer.
   decides instantly via Math.random; the 🎲 face tumbles in CSS
   (`sd-dice-tumble`, skipped under `prefers-reduced-motion`) and the number
   settles ~650ms later. Last five rolls persist in localStorage
-  (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2".
-  (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2".
-  No REST endpoint. Launcher icons for the whole pack are literal emoji
+  (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2". No REST
+  endpoint. Launcher icons for the whole pack are literal emoji
   glyphs — the launcher treats any icon value not prefixed `dashicons-`
   as the glyph text itself (`sd-glyph` class).
 - ✅ **📊 Site vitals** — SHIPPED. The pack's one server-rendered cubby:
@@ -52,13 +51,26 @@ Site Vitals. Build order: dice → vitals → passphrase → timer.
   snackbar: "Copy failed — couldn’t access the clipboard." —
   `sd-toast--warn`, `role="alert"`), honest degradation with
   a translated message if crypto is unavailable. Launcher icon 🔐.
+- ✅ **⏱️ Focus timer** — SHIPPED. The state machine lives in drawer
+  scope, NOT the panel DOM: `timer` = {remaining, total, running,
+  endAt, tick}; any panel pop/re-open re-paints from state on mount
+  (`paintTimer()` on wire). 250ms `setTimeout` tick compares
+  `Date.now()` to `endAt` — drift-free and pause-safe. Finish: pulse
+  animation on the ring (skipped under `prefers-reduced-motion`),
+  auto re-pop via `showCubby('timer')` ("show" semantics won't fight
+  an open panel), "Time's up — nice focus." snackbar, and a
+  `secret-drawer:cubby:timer:done` event for extension authors.
+  Reset-to-duration after finish; drawer close flushes state (the
+  plan's rule); picking a chip mid-count resets (deliberate — no
+  surprise jumps on a running timer). No REST, no storage. Launcher
+  icon ⏱️.
 - **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
   debug on/off, active theme. Server-rendered via the registry (one cached
   query), like Site Health's CliffNotes.
 - **🔐 Passphrase generator** — random words + numbers, length picker,
   one-click copy. Client-side only; nothing leaves the browser (this is a
   security-adjacent plugin — the passphrase must never hit the server).
-- **⏱️ Focus timer** — 25-minute pomodoro in a panel. When the timer
+- **⏱️ Focus timer** — short pomodoro in a panel (1/5/10/20 presets, 20 default). When the timer
   finishes it re-opens its own cubby panel if closed and plays an
   attention-grabby-but-not-overdone finish animation. Timer state is
   cleared when the whole drawer closes (assume the user doesn't want it).

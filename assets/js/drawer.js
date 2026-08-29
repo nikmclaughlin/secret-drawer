@@ -200,8 +200,9 @@
 			wireDice( mount );
 		} else if ( 'passphrase' === id ) {
 			wirePassphrase( mount );
+		} else if ( 'timer' === id ) {
+			wireTimer( mount );
 		}
-		// Notifications and vitals are display-only.
 	}
 
 	/**
@@ -416,6 +417,150 @@
 		} );
 
 		regenerate(); // Something worth copying from the first glance.
+	}
+
+	/**
+	 * Focus timer: a 20-minute countdown that survives its own panel
+	 * being closed and re-opened. All state lives HERE in drawer scope
+	 * (never in the panel DOM); the panel is a viewport we re-paint on
+	 * mount via paintTimer(). One countdown per drawer; dies on drawer
+	 * close (resetTimer runs from close()).
+	 */
+	var timer = { remaining: 20 * 60, total: 20 * 60, running: false, endAt: 0, tick: 0 };
+
+	function timerMins() {
+		var checked = document.querySelector( 'input[name="sd-timer-mins"]:checked' );
+		return checked ? parseInt( checked.value, 10 ) || 25 : 25;
+	}
+
+	function timerFmt( totalSeconds ) {
+		var m = Math.floor( totalSeconds / 60 );
+		var s = totalSeconds % 60;
+		return m + ':' + ( s < 10 ? '0' : '' ) + s;
+	}
+
+	/** Repaint the panel from state — called on mount, every tick, pause. */
+	function paintTimer() {
+		var mount = document.querySelector( '[data-sd-timer]' );
+		if ( ! mount ) {
+			return;
+		}
+		var time = mount.querySelector( '.sd-timer-time' );
+		var status = mount.querySelector( '.sd-timer-status' );
+		var startB = mount.querySelector( '[data-sd-timer-start]' );
+		var pauseB = mount.querySelector( '[data-sd-timer-pause]' );
+		var resetB = mount.querySelector( '[data-sd-timer-reset]' );
+		if ( ! time ) {
+			return;
+		}
+		time.textContent = timerFmt( timer.running ? Math.max( 0, Math.ceil( ( timer.endAt - Date.now() ) / 1000 ) ) : timer.remaining );
+		var running = timer.running;
+		if ( startB ) {
+			startB.hidden = running;
+			startB.textContent = timer.remaining < timer.total ? ( config.strings.timerResume || 'Resume' ) : ( config.strings.timerStart || 'Start' );
+		}
+		if ( pauseB ) {
+			pauseB.hidden = ! running;
+		}
+		if ( resetB ) {
+			// Hidden only when idle at full duration (nothing to undo);
+			// visible when running, paused, or exhausted — always a way back.
+			resetB.hidden = ! timer.running && timer.remaining === timer.total;
+		}
+		if ( status ) {
+			status.textContent = running ? ( config.strings.timerRunning || 'Focus — it is running.' ) : '';
+		}
+	}
+
+	function wireTimer( mount ) {
+		if ( mount.dataset.timerWired ) {
+			return;
+		}
+		mount.dataset.timerWired = '1';
+		mount.addEventListener( 'click', function ( event ) {
+			if ( event.target.closest( '[data-sd-timer-start]' ) ) {
+				startTimer();
+			} else if ( event.target.closest( '[data-sd-timer-pause]' ) ) {
+				pauseTimer();
+			} else if ( event.target.closest( '[data-sd-timer-reset]' ) ) {
+				resetTimer();
+			} else if ( event.target.closest( 'input[name="sd-timer-mins"]' ) ) {
+				// New duration chosen: that IS the reset. (Even mid-run —
+				// surprising auto-jumps to running timers are worse than a reset.)
+				resetTimer();
+			}
+		} );
+		paintTimer();
+	}
+
+	/** One paint + reschedule. Fires the finish sequence at zero. */
+	function timerTick() {
+		paintTimer();
+		if ( ! timer.running ) {
+			return;
+		}
+		var left = Math.ceil( ( timer.endAt - Date.now() ) / 1000 );
+		if ( 0 >= left ) {
+			timer.running = false;
+			timer.tick = 0;
+			timerFinish();
+			return;
+		}
+		timer.tick = window.setTimeout( timerTick, 250 );
+	}
+
+	/** Start (or resume): stamps endAt so ticks are drift-free. */
+	function startTimer() {
+		if ( ! timer.running ) {
+			timer.endAt = Date.now() + timer.remaining * 1000;
+			timer.total = timer.total || timer.remaining;
+			timer.running = true;
+			timer.tick = window.setTimeout( timerTick, 250 );
+		}
+		paintTimer();
+	}
+
+	/** Pause: freeze at the shown remainder. */
+	function pauseTimer() {
+		if ( timer.running ) {
+			timer.remaining = Math.max( 0, Math.ceil( ( timer.endAt - Date.now() ) / 1000 ) );
+			timer.running = false;
+			window.clearTimeout( timer.tick );
+		}
+		paintTimer();
+	}
+
+	/** Reset to the picker's minutes, fully stopped. */
+	function resetTimer() {
+		window.clearTimeout( timer.tick );
+		timer.running = false;
+		timer.remaining = timerMins() * 60;
+		timer.total = timer.remaining;
+		paintTimer();
+	}
+
+	/** Run-to-zero: pulse (skip under reduced motion) + re-pop panel + toast. */
+	function timerFinish() {
+		paintTimer();
+		var mount = document.querySelector( '[data-sd-timer]' );
+		if ( mount && ! reduceMotion() ) {
+			mount.classList.add( 'sd-timer--done' );
+			window.setTimeout( function () {
+				var m = document.querySelector( '[data-sd-timer]' );
+				if ( m ) {
+					m.classList.remove( 'sd-timer--done' );
+				}
+			}, 2600 );
+		}
+		document.dispatchEvent( new CustomEvent( 'secret-drawer:cubby:timer:done', { detail: { minutes: Math.round( timer.total / 60 ) } } ) );
+		// Attention without nagging: re-open the panel if it was closed.
+		if ( config.strings.timerDone ) {
+			showCubby( 'timer' );
+			paintTimer();
+			snackbar( config.strings.timerDone );
+		}
+		// Back to a fresh slate at the same duration; user starts when ready.
+		timer.remaining = timer.total;
 	}
 
 	/**
@@ -973,6 +1118,12 @@
 
 	function onClose() {
 		document.dispatchEvent( new CustomEvent( 'secret-drawer:close' ) );
+		// The plan's one timer rule: state dies with the whole drawer.
+		// (Panel pops deliberately do NOT reset — pause-and-peek at the
+		// launcher grid, or open a note mid-count, without losing focus.)
+		window.clearTimeout( timer.tick );
+		timer.running = false;
+		timer.remaining = 20 * 60;
 	}
 
 	function open() {
