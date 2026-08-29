@@ -49,7 +49,7 @@ secret-drawer/
 │   ├── class-rest.php              # /settings routes
 │   ├── class-rest-cubbies.php      # Cubby routes
 │   ├── class-cubby-registry.php    # Catalog: filter, normalize, sort, gate
-│   └── cubbies/                    # notes, links, notifications, levers, socrates, dice
+│   └── cubbies/                    # notes, links, notifications, levers, socrates, dice, vitals
 ├── assets/
 │   ├── css/drawer.css              # Single stylesheet
 │   └── js/drawer.js                # wp-components UI, no build step
@@ -126,6 +126,7 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | Levers        | One-click actions: copy-site-URL (client clipboard) + empty-trash (server, `edit_others_posts`, confirmation), filterable via `secret_drawer_levers`               | ✅ (M4) |
 | Socrates      | The bust that started it all — portrait + caption (post-plan addition)                                                                                             | ✅      |
 | Dice          | d2/d6/d12/d20 picker, roll with CSS tumble, last-five history in localStorage. Client-side only, no REST                                                            | ✅      |
+| Site Vitals   | WP/PHP versions, memory, WP_DEBUG, theme; autoload size, plugins (active | inactive split card, warns on inactive side at 5+), missed schedules, env type, HTTPS, object cache, live site clock. 1-hour transient (schema-keyed, clock excluded), `secret_drawer_vitals` filter | ✅      |
 
 ## UX & accessibility (as built)
 
@@ -175,7 +176,7 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | M4 Cubby API, registry, levers, extending doc                                       | ✅                                                                     |
 | M5 Polish & release-readiness (i18n audit, `readme.txt`, RTL, Plugin Check, v1.0.0) | ✅ — tagged & released                                                 |
 | CP4 pre-release human pass                                                          | ✅                                                                     |
-| M6 Desk-odds-and-ends cubby pack                                                    | ⏳ in progress — dice ✅; vitals, passphrase, timer pending             |
+| M6 Desk-odds-and-ends cubby pack                                                    | ⏳ in progress — dice ✅, vitals ✅; passphrase, timer pending          |
 | Post-release extras                                                                 | ✅ Socrates cubby, Playground demo, CI release workflow, README revamp |
 
 ## What's planned next

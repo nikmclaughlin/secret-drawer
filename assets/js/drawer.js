@@ -199,7 +199,7 @@
 		} else if ( 'dice' === id ) {
 			wireDice( mount );
 		}
-		// Notifications is display-only.
+		// Notifications and vitals are display-only.
 	}
 
 	/**
@@ -1190,6 +1190,22 @@
 		return meta ? meta.title : id;
 	}
 
+	/**
+	 * Icon class for a cubby card. Anything starting with "dashicons-"
+	 * rides the dashicons font as before; anything else is treated as a
+	 * literal glyph (emoji or character) rendered as the span's text.
+	 */
+	function iconClass( icon ) {
+		var value = icon || 'dashicons-marker';
+		return 'sd-card-icon ' + ( 0 === value.indexOf( 'dashicons-' ) ? 'dashicons ' + value : 'sd-glyph' );
+	}
+
+	/** Text content for a cubby card icon (glyph only, empty for dashicons). */
+	function iconGlyph( icon ) {
+		var value = icon || 'dashicons-marker';
+		return 0 === value.indexOf( 'dashicons-' ) ? '' : value;
+	}
+
 	function Drawer() {
 		if ( 'settings' === state.view ) {
 			return h( Settings );
@@ -1210,7 +1226,7 @@
 					openPanel( cubby.id, null );
 				}
 			},
-				h( 'span', { className: 'sd-card-icon dashicons ' + ( cubby.icon || 'dashicons-marker' ), 'aria-hidden': 'true' } ),
+				h( 'span', { className: iconClass( cubby.icon ), 'aria-hidden': 'true' }, iconGlyph( cubby.icon ) ),
 				h( 'span', { className: 'sd-card-title' }, cubby.title )
 			);
 		} );

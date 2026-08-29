@@ -23,7 +23,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 		'id'          => 'todo',                  // [a-z0-9_-]+ — used in the REST route
 		'title'       => __( 'Team Todo', 'my-plugin' ),
 		'description' => __( 'A shared list of things to do.', 'my-plugin' ),
-		'icon'        => 'dashicons-list-view',   // any dashicons-* class
+		'icon'        => 'dashicons-list-view',   // any dashicons-* class, or a literal glyph (e.g. an emoji)
 		'capability'  => 'edit_pages',            // per-type gate (optional)
 		'singleton'   => true,                    // v1: all types are single-instance
 		'order'       => 40,                      // sort position (default 50)
@@ -43,7 +43,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 | `id`          | string   | yes      | Array key; must match `[a-z0-9_-]+` (it becomes a REST route segment). |
 | `title`       | string   | yes      | Entries without a title are treated as hidden and dropped.             |
 | `description` | string   | no       | Shown in the cubby library / settings picker.                          |
-| `icon`        | string   | no       | Dashicon class; defaults to `dashicons-marker`.                        |
+| `icon`        | string   | no       | Dashicon class (e.g. `dashicons-smiley`) or a literal glyph (emoji works — anything not prefixed `dashicons-` renders as the text). Defaults to `dashicons-marker`. |
 | `capability`  | string   | no       | Per-type gate, checked against the current user at enqueue *and* at render time. |
 | `singleton`   | bool     | no       | Reserved. All v1 cubby types are single-instance.                      |
 | `order`       | int      | no       | Sort position in the launcher; ties keep registration order.           |
@@ -157,7 +157,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 		'id'          => 'mood',
 		'title'       => __( 'Mood', 'example' ),
 		'description' => __( 'How is the site feeling today?', 'example' ),
-		'icon'        => 'dashicons-smiley',
+		'icon'        => '🎭',
 		'order'       => 45,
 		'render'      => function (): string {
 			$moods = [ 'thrilled', 'fine', 'holding on', 'chaotic' ];

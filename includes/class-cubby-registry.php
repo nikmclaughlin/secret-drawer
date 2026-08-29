@@ -93,8 +93,13 @@ final class Secret_Drawer_Cubby_Registry {
 			),
 			'dice'          => array(
 				'title'       => __( 'Dice', 'secret-drawer' ),
-				'icon'        => 'sd-dice-emoji',
+				'icon'        => '🎲',
 				'description' => __( 'A d2, d6, d12, or d20 with a tumble and a short memory.', 'secret-drawer' ),
+			),
+			'vitals'        => array(
+				'title'       => __( 'Site Vitals', 'secret-drawer' ),
+				'icon'        => '🩺',
+				'description' => __( 'WP/PHP, plugins, cron, HTTPS, and more.', 'secret-drawer' ),
 			),
 		);
 
@@ -193,6 +198,8 @@ final class Secret_Drawer_Cubby_Registry {
 				return Secret_Drawer_Cubby_Socrates::get_html();
 			case 'dice':
 				return Secret_Drawer_Cubby_Dice::get_html();
+			case 'vitals':
+				return Secret_Drawer_Cubby_Vitals::get_html();
 		}
 
 		return '';

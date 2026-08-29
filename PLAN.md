@@ -17,8 +17,29 @@ Site Vitals. Build order: dice → vitals → passphrase → timer.
   (`sd-dice-tumble`, skipped under `prefers-reduced-motion`) and the number
   settles ~650ms later. Last five rolls persist in localStorage
   (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2".
-  No REST endpoint; dashicons has no die, so the launcher card uses an
-  emoji glyph class (`sd-dice-emoji`).
+  (`secretDrawer.dice.last5`), shown as "1 · 20 · 4 · 8 · 2".
+  No REST endpoint. Launcher icons for the whole pack are literal emoji
+  glyphs — the launcher treats any icon value not prefixed `dashicons-`
+  as the glyph text itself (`sd-glyph` class).
+- ✅ **📊 Site vitals** — SHIPPED. The pack's one server-rendered cubby:
+  `<dl>` of vital cards: WordPress + PHP versions, memory limit, WP_DEBUG,
+  active theme w/ version; plus a quiet health block — **autoloaded
+  options size** (Site Health's own algorithm + 800KB threshold,
+  including its filter, so the two tools always agree), **plugins as an
+  active | inactive split count** (warns at 5+ inactive, `INACTIVE_WARN`),
+  **missed schedules** (future posts past publish time = WP-Cron telltale,
+  deep links to the stuck list) and a **live site clock** (re-computed at
+  render, never cached — hourly snapshot of "now" would be a lie).
+  Rows support {label, value, value2 (second half of a split card),
+  note/note2 (small captions), ok, url, warn_side}: split cards fill
+  the card width with a centered divider, and warn_side (1|2) ambers
+  just the offending half + divider + card edge (plugins: inactive
+  side when 5+ inactive, `INACTIVE_WARN`). Later rows: environment
+  type (identity, never judged), HTTPS on home_url (off trips warn,
+  config-read — no network probe), object cache present/none.
+  Filterable via `secret_drawer_vitals`; hourly transient (schema-
+  keyed, bump `CACHE_SCHEMA` when the row shape changes) except the
+  clock; display-only (no `wireCubby()`, no REST). Launcher icon 🩺.
 - **📊 Site vitals** — quick-glance card: WP/PHP versions, memory limit,
   debug on/off, active theme. Server-rendered via the registry (one cached
   query), like Site Health's CliffNotes.
