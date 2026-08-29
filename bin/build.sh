@@ -35,7 +35,7 @@ ZIP="$BUILD_DIR/$SLUG-$VERSION.zip"
 # .gitignore where applicable.
 EXCLUDES=(
 	.git .wordpress.org bin build
-	PLAN.md SECRET-DRAWER-EXTENDING.md README.md .gitignore
+	PLAN.md AGENTS.md SECRET-DRAWER-EXTENDING.md README.md .gitignore
 	.DS_Store '*.log'
 	# Original 1944px source photo (1.7MB); only the web copy ships.
 	'Socrates Louvre.jpg'

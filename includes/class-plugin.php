@@ -96,7 +96,7 @@ final class Secret_Drawer_Plugin {
 	}
 
 	/**
-	 * Default settings. Shape is documented in PLAN.md §5.
+	 * Default settings. Shape is documented in AGENTS.md, Settings & data model.
 	 *
 	 * @return array
 	 */

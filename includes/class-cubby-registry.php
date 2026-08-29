@@ -3,8 +3,9 @@
  * Cubby type registry.
  *
  * Single source of truth for cubby *types*: the built-ins, plus anything
- * third parties register via the `secret_drawer_cubbies` filter (PLAN.md §7).
- * The registry normalizes entries, sorts them by `order`, and gates each
+ * third parties register via the `secret_drawer_cubbies` filter (see
+ * SECRET-DRAWER-EXTENDING.md for the entry schema). The registry normalizes
+ * entries, sorts them by `order`, and gates each
  * type on its declared `capability`. Which types actually appear in a
  * given user's drawer is still the `enabled_cubbies` setting — the library
  * and the drawer's contents are separate concerns.
@@ -94,7 +95,7 @@ final class Secret_Drawer_Cubby_Registry {
 
 		/**
 		 * Register cubby types. Built-ins are included; add or override
-		 * entries keyed by cubby id. See PLAN.md §7 for the schema.
+		 * entries keyed by cubby id. See SECRET-DRAWER-EXTENDING.md for the schema.
 		 *
 		 * @param array[] $cubbies Cubby type catalog.
 		 */

@@ -2,7 +2,7 @@
 /**
  * Secret Drawer uninstall: remove every trace of the plugin.
  *
- * Naming convention (PLAN.md §5):
+ * Naming convention (see AGENTS.md, Settings & data model):
  * - Drawer-scoped: `secret_drawer_{thing}` (settings, discovered).
  * - Cubby-scoped per-user data: `secret_drawer_cubby_{id}` — swept by
  *   pattern so third-party cubbies are cleaned up too.
