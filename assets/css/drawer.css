@@ -410,6 +410,29 @@
 	color: #757575;
 }
 
+/* Unsaved-changes cue: the Save button is grey while clean (nothing to
+   save) and WordPress blue (#3858e9) as soon as the draft differs from
+   the loaded settings. !important beats wp-components' palette, which
+   keeps the accent background even on disabled primaries. */
+.sd-settings-footer .components-button.is-primary:disabled,
+.sd-settings-footer .components-button.is-primary[aria-disabled='true'] {
+	background: #f0f0f1 !important;
+	border-color: #f0f0f1 !important;
+	color: #a7aaad !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty {
+	background: #3858e9 !important;
+	border-color: #3858e9 !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty:hover:not(:disabled) {
+	background: #2145e6 !important;
+	border-color: #2145e6 !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty:focus:not(:disabled) {
+	box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-components-color-background, #fff),
+		0 0 0 calc(var(--wp-admin-border-width-focus, 1.5px) + var(--wp-admin-border-width-focus, 1.5px)) #3858e9 !important;
+}
+
 .sd-save-status.sd-error {
 	color: #b32d2e;
 }
@@ -637,13 +660,17 @@
 	font-size: 11px;
 }
 
-/* Footer wink */
 .sd-footer {
 	flex: 0 0 auto;
 	text-align: center;
 	padding: 6px 0 8px;
 	border-top: 1px solid var(--sd-border);
 	font-size: 12px;
+}
+
+/* Footer wink (the launcher's lone 🤫): dimmed. The dimming lives here,
+   not on .sd-footer, so interactive footers (settings) are full-strength. */
+.sd-wink {
 	opacity: 0.6;
 	user-select: none;
 }
@@ -752,7 +779,9 @@
 	.sd-drawer,
 	.sd-panel,
 	.sd-ghost,
-	.sd-toast {
+	.sd-toast,
+	.sd-dice-tumble,
+	.sd-timer--done .sd-timer-ring {
 		transition: none;
 		animation: none;
 		opacity: 1;
@@ -806,4 +835,503 @@
 	font-style: italic;
 	color: var(--sd-muted, #666);
 	line-height: 1.4;
+}
+
+/* Non-dashicons card icons are literal glyphs (emoji/character): the JS
+ * renders them as the span's text under the `sd-glyph` class. Sized the
+ * same slot as dashicons; color is dropped so the emoji keeps its colors. */
+.sd-card-icon.sd-glyph::before {
+	content: none;
+}
+
+.sd-card-icon.sd-glyph {
+	font-size: 22px;
+	color: inherit;
+}
+
+/* Dice cubby: pick a die, roll it, remember five. */
+.sd-dice {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.sd-dice-picker {
+	border: 1px solid var(--sd-border);
+	border-radius: 4px;
+	padding: 8px 10px;
+	margin: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.sd-dice-legend {
+	padding: 0 6px;
+	font-size: 12px;
+	color: #757575;
+}
+
+/* Piped radio: the input stays in the tab order and keyboard-selectable,
+ * the visible chip is its styled sibling. */
+.sd-dice-chip {
+	position: relative;
+	display: inline-flex;
+}
+
+.sd-dice-chip input {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.sd-dice-chip-face {
+	display: inline-block;
+	padding: 4px 12px;
+	border: 1px solid var(--sd-border);
+	border-radius: 999px;
+	background: #fff;
+	font-size: 13px;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease,
+		border-color 120ms ease;
+}
+
+.sd-dice-chip:hover .sd-dice-chip-face {
+	border-color: var(--sd-accent);
+}
+
+.sd-dice-chip input:checked + .sd-dice-chip-face {
+	background: var(--sd-accent);
+	border-color: var(--sd-accent);
+	color: #fff;
+}
+
+.sd-dice-chip input:focus-visible + .sd-dice-chip-face {
+	box-shadow:
+		0 0 0 2px #fff,
+		0 0 0 4px var(--sd-accent);
+}
+
+.sd-dice-actions {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.sd-dice-result {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.6ch;
+	margin: 0;
+	background: #fff;
+	border: 1px solid var(--sd-border);
+	border-radius: 6px;
+	padding: 12px 8px;
+	min-height: 48px;
+}
+
+.sd-dice-face {
+	font-size: 22px;
+	line-height: 1;
+}
+
+.sd-dice-value {
+	font-size: 32px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	min-width: 1.6ch;
+}
+
+.sd-dice-max {
+	font-size: 12px;
+	color: #757575;
+}
+
+.sd-dice-history {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	margin: 0;
+}
+
+.sd-dice-roll-list {
+	font-variant-numeric: tabular-nums;
+}
+
+/* The tumble: two spins with a hop. Short enough to restart on every
+ * click without feeling like it interrupts; JS re-adds the class to
+ * replay it. */
+.sd-dice-tumble {
+	display: inline-block;
+	animation: sd-dice-tumble 650ms cubic-bezier(0.2, 0.7, 0.3, 1) 1;
+	color: var(--sd-accent);
+}
+
+@keyframes sd-dice-tumble {
+	0% {
+		transform: translateY(0) rotate(0deg) scale(1);
+	}
+	25% {
+		transform: translateY(-14px) rotate(180deg) scale(1.15);
+	}
+	50% {
+		transform: translateY(0) rotate(360deg) scale(1);
+	}
+	75% {
+		transform: translateY(-7px) rotate(540deg) scale(1.1);
+	}
+	100% {
+		transform: translateY(0) rotate(720deg) scale(1);
+	}
+}
+
+/* Site vitals: a quiet definition list, two across when there's room. */
+.sd-vitals {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	gap: 8px;
+	margin: 0 0 8px;
+}
+
+.sd-vital {
+	background: #fff;
+	border: 1px solid var(--sd-border);
+	border-radius: 6px;
+	padding: 8px 10px;
+	min-width: 0;
+}
+
+.sd-vital dt {
+	font-size: 11px;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: #757575;
+	margin: 0 0 2px;
+}
+
+.sd-vital dd {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+
+/* A falsy `ok` flags the row: amber left edge, no alarm graphics. */
+.sd-vital--warn {
+	border-inline-start: 3px solid #dba617;
+}
+
+.sd-vital-stale {
+	margin: 0;
+	font-size: 11px;
+}
+
+/* Vitals extras: value links (single-value rows). */
+.sd-vital dd a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.sd-vital dd a:hover,
+.sd-vital dd a:focus-visible {
+	text-decoration: underline;
+}
+
+.sd-vital .sd-vital-div {
+	color: #a7aaad;
+	margin-inline: 4px;
+	font-weight: 400;
+}
+
+.sd-vital .sd-vital-note {
+	display: block;
+	font-size: 11px;
+	font-weight: 400;
+	color: #757575;
+	margin-top: 2px;
+}
+
+/* Split cards (e.g. plugins: active | inactive): the two halves push
+ * apart to cover the card with the divider centered between them. Each
+ * half carries its own tiny caption under its number. */
+.sd-vital dd:has(> .sd-vital-part) {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 4px;
+}
+
+.sd-vital .sd-vital-part {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-start;
+	min-width: 0;
+	flex: 1 1 0;
+}
+
+.sd-vital .sd-vital-part:first-child {
+	text-align: start;
+}
+
+.sd-vital .sd-vital-div {
+	align-self: center;
+	color: #a7aaad;
+	font-weight: 400;
+	flex: 0 0 auto;
+}
+
+.sd-vital-part .sd-vital-sub {
+	font-size: 11px;
+	font-weight: 400;
+	color: #757575;
+	font-style: normal;
+	white-space: nowrap;
+}
+
+/* A problem localized to one half: its number, its label, and the
+ * divider all tip amber, so the offender is unmissable without
+ * alarming the healthy half. */
+.sd-vital-part--warn {
+	color: #8a6116;
+}
+
+.sd-vital-part--warn .sd-vital-sub {
+	color: #8a6116;
+}
+
+.sd-vital--splitwarn .sd-vital-div {
+	color: #dba617;
+	font-weight: 700;
+}
+
+.sd-vital--splitwarn {
+	border-inline-start: 3px solid #dba617;
+}
+
+/* Passphrase: word picker, readout, copy actions. Client-only cubby;
+   the note line carries the "never leaves your browser" promise. */
+.sd-pass {
+	display: grid;
+	gap: 12px;
+}
+.sd-pass-row {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+.sd-pass-field {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.sd-pass-field-label {
+	font-size: 12px;
+	color: #50575e;
+}
+.sd-pass-count {
+	min-height: 30px;
+}
+.sd-pass-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+.sd-pass-result {
+	margin: 0;
+	text-align: center;
+}
+.sd-pass-readout {
+	display: inline-block;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.5;
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 12px;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	text-align: center;
+}
+.sd-pass-bits {
+	display: block;
+	margin-top: 6px;
+	font-size: 12px;
+	color: #50575e;
+}
+.sd-pass-note.sd-muted {
+	margin: 0;
+	font-size: 12px;
+	text-align: center;
+}
+
+/* Warning tone for the snackbar — clipboard/blocking failures etc.
+   Amber fills the pill and flips the text dark so contrast holds. */
+.sd-toast--warn {
+	background: #dba617;
+	color: #2c2305;
+}
+
+/* Focus timer — ring viewport, chip picker, finish pulse. */
+.sd-timer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	padding: 6px 0 4px;
+}
+.sd-timer-ring {
+	width: 128px;
+	height: 128px;
+	border-radius: 50%;
+	border: 3px solid var(--sd-accent, #3858e9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+}
+.sd-timer--done .sd-timer-ring {
+	animation: sd-timer-pulse 0.65s ease-in-out 4;
+	border-color: #dba617;
+}
+.sd-timer-time {
+	font-size: 30px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+.sd-timer-picker {
+	display: flex;
+	gap: 6px;
+	border: 0;
+	padding: 0;
+	margin: 0;
+}
+.sd-timer-chip input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+.sd-timer-chip span {
+	display: inline-block;
+	padding: 4px 10px;
+	border: 1px solid #c3c4c7;
+	border-radius: 999px;
+	cursor: pointer;
+	font-size: 12px;
+}
+.sd-timer-chip input:checked + span {
+	background: var(--sd-accent, #3858e9);
+	border-color: var(--sd-accent, #3858e9);
+	color: #fff;
+}
+.sd-timer-chip input:focus-visible + span {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: 2px;
+}
+.sd-timer-actions {
+	display: flex;
+	gap: 8px;
+}
+.sd-timer-status {
+	min-height: 1.2em;
+	margin: 0;
+	font-size: 12px;
+	color: var(--sd-muted, #757575);
+}
+@keyframes sd-timer-pulse {
+	0%, 100% { transform: scale(1); }
+	50% { transform: scale(1.06); }
+}
+
+/* ------------------------------------------------------------------ *\
+   Cubby packs — library grouping (presentation only, never stored).
+\* ------------------------------------------------------------------ */
+.sd-pack-card {
+	justify-content: flex-start;
+	text-align: left;
+	gap: 4px;
+}
+.sd-pack-card .sd-card-icon {
+	font-size: 26px; /* glyph packs read a touch larger than cubby cards */
+}
+.sd-pack-card .sd-card-title {
+	text-align: left;
+}
+.sd-pack-count {
+	font-size: 11px;
+}
+.sd-pack-back {
+	margin-bottom: 4px;
+}
+.sd-pack-desc {
+	margin: 4px 0 10px;
+}
+.sd-pack-addall {
+	appearance: none;
+	background: var(--sd-accent, #3858e9);
+	border: 1px solid var(--sd-accent, #3858e9);
+	border-radius: 6px;
+	color: #fff;
+	cursor: pointer;
+	font: inherit;
+	margin-top: 10px;
+	padding: 6px 14px;
+}
+.sd-pack-addall:focus-visible {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.sd-pack-addall:active {
+		transform: translateY(1px);
+	}
+}
+
+/* Library cubby: server-rendered pack menu. */
+.sd-library-packs {
+	margin-top: 4px;
+}
+.sd-pack {
+	border: 1px solid var(--sd-border, #dcdcde);
+	border-radius: 8px;
+	margin-bottom: 8px;
+}
+.sd-pack-sum {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	padding: 10px 12px;
+}
+.sd-pack-sum:focus-visible {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: -2px;
+}
+.sd-pack[open] .sd-pack-sum {
+	border-bottom: 1px solid var(--sd-border, #dcdcde);
+}
+.sd-pack-icon {
+	font-size: 22px;
+}
+.sd-pack-title {
+	font-weight: 600;
+}
+.sd-pack .sd-pack-addall {
+	margin: 8px 12px 10px;
+}
+.sd-lib-toggle {
+	width: auto; /* label buttons ("Add"/"Remove"), not icon-sized */
+	padding: 4px 12px;
 }

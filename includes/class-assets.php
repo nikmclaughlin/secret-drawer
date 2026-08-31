@@ -99,6 +99,7 @@ class Secret_Drawer_Assets {
 			'discovered'     => (bool) get_user_meta( get_current_user_id(), 'secret_drawer_discovered', true ),
 			'cubbies'        => self::cubbies_for_user( $settings ),
 			'catalog'        => self::catalog_for_user( $settings ),
+			'packs'          => self::packs_for_user(),
 			'roleOptions'    => self::role_options(),
 			'roles'          => (array) $settings['roles'],
 			'manageSettings' => current_user_can( 'manage_options' ),
@@ -130,6 +131,7 @@ class Secret_Drawer_Assets {
 				'removeLabel' => __( 'Remove', 'secret-drawer' ),
 				'emptyDrawer' => __( 'This drawer is empty. Add something from the library.', 'secret-drawer' ),
 				'copied'      => __( 'Copied ✓', 'secret-drawer' ),
+				'copyFail'    => __( 'Copy failed — couldn’t access the clipboard.', 'secret-drawer' ),
 				'leverDone'   => __( 'Done', 'secret-drawer' ),
 				'leverEmpty'  => __( 'nothing to delete', 'secret-drawer' ),
 				// translators: %d is the number of posts deleted.
@@ -137,6 +139,18 @@ class Secret_Drawer_Assets {
 				// translators: %d is the number of comments deleted.
 				'nComments'   => __( '%d comments', 'secret-drawer' ),
 				'leverFail'   => __( 'Could not pull that lever.', 'secret-drawer' ),
+				'roll'        => __( 'Roll', 'secret-drawer' ),
+				'lastFive'    => __( 'Last five', 'secret-drawer' ),
+				// translators: %d is the number of sides on the chosen die.
+				'diceOf'      => __( 'of %d', 'secret-drawer' ),
+				'passNoCrypto'=> __( 'Your browser could not generate one securely.', 'secret-drawer' ),
+				'passNothing' => __( 'Generate a passphrase first.', 'secret-drawer' ),
+				'timerStart'  => __( 'Start', 'secret-drawer' ),
+				'timerResume' => __( 'Resume', 'secret-drawer' ),
+				'timerDone'   => __( "Time's up — nice focus.", 'secret-drawer' ),
+				'addAll'      => __( 'Add all', 'secret-drawer' ),
+				// translators: %1$d is how many pack members are on, %2$d the pack size.
+				'ofD'         => __( '%1$d of %2$d added', 'secret-drawer' ),
 			),
 		);
 	}
@@ -155,6 +169,26 @@ class Secret_Drawer_Assets {
 				'title'       => $cubby['title'],
 				'icon'        => (string) $cubby['icon'],
 				'description' => (string) $cubby['description'],
+				'pack'        => (string) $cubby['pack'],
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Pack cards for the Cubby Library: same capability gating as the
+	 * catalog itself (a pack with no visible cubbies is not a pack).
+	 *
+	 * @return array[]
+	 */
+	private static function packs_for_user() {
+		$out = array();
+		foreach ( Secret_Drawer_Cubby_Registry::packs() as $id => $pack ) {
+			$out[ $id ] = array(
+				'title'       => $pack['title'],
+				'icon'        => (string) $pack['icon'],
+				'description' => (string) $pack['description'],
+				'members'     => $pack['members'],
 			);
 		}
 		return $out;

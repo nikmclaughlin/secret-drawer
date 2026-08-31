@@ -27,7 +27,9 @@ extend. Silly to find, genuinely useful to have. Released: **v1.0.0**
 4. **Naming is public API** (bake in, never rename casually):
    `secret_drawer_settings`, `secret_drawer_cubby_{id}` (user data per
    cubby), `secret_drawer_cubbies` filter, `secret-drawer/v1` REST namespace,
-   `secret-drawer:*` JS events, `window.SecretDrawer` global.
+   `secret-drawer:*` JS events, `window.SecretDrawer` global. Packs add
+   `secret_drawer_packs` (library grouping; presentation metadata only —
+   nothing pack-level is persisted, so pack reorgs never touch drawers).
 5. **wp.org-ready**: i18n-ready strings, `readme.txt`, no registration/key/
    telemetry checks. Nothing about the plugin leaks onto normal admin screens.
 6. **The dev site is Nik's territory.** Agents write code and run static
@@ -48,8 +50,9 @@ secret-drawer/
 │   ├── class-settings.php          # Sanitize/persist (REST only)
 │   ├── class-rest.php              # /settings routes
 │   ├── class-rest-cubbies.php      # Cubby routes
-│   ├── class-cubby-registry.php    # Catalog: filter, normalize, sort, gate
-│   └── cubbies/                    # notes, links, notifications, levers, socrates
+│   ├── class-cubby-registry.php    # Catalog: filter, normalize, sort, gate; packs()
+│   └── cubbies/                    # notes, links, notifications, levers, socrates, dice,
+│                                   #   vitals, passphrase, timer
 ├── assets/
 │   ├── css/drawer.css              # Single stylesheet
 │   └── js/drawer.js                # wp-components UI, no build step
@@ -106,11 +109,19 @@ Note: routes are `/cubbies/…` — the plan's earlier `/notes`, `/links`,
 ## Cubby API (extensibility)
 
 `Secret_Drawer_Cubby_Registry` owns the catalog: applies the
-`secret_drawer_cubbies` filter over the built-ins, normalizes entries,
-stable-sorts by `order`, drops types whose `capability` the current user
-lacks (checked at enqueue **and** at render). Full entry schema, lever
+`secret_drawer_cubbies` filter over the built-ins, normalizes entries
+(including the `pack` grouping field), stable-sorts by `order`, drops
+types whose `capability` the current user lacks (checked at enqueue **and**
+at render). `packs()` builds the library's pack cards from the
+`secret_drawer_packs` filter (humanized-id fallback for unlisted packs,
+hidden when no member is visible). Full entry schema, lever
 schema, and a complete drop-in example cubby:
-**`SECRET-DRAWER-EXTENDING.md`**.
+**`SECRET-DRAWER-EXTENDING.md`**. For agents **building a new cubby**,
+follow the step-by-step in **`skills/create-cubby/SKILL.md`** (shape choice,
+data split, i18n, docs sync, the check gate — including why `node --check`
+here needs an exit code, not its log line). The skill also **ships in the
+release zip** alongside the extending doc, so self-hosted site owners can
+hand their own agents the same recipe; keep both public.
 
 JS events (on `document`): `secret-drawer:open`, `secret-drawer:close`,
 `secret-drawer:cubby:shown` (detail `{id}`).
@@ -125,6 +136,12 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | Notifications | Update + moderation counts, filterable via `secret_drawer_notifications`, deep links, 1-hour transient cache, count badge                                          | ✅      |
 | Levers        | One-click actions: copy-site-URL (client clipboard) + empty-trash (server, `edit_others_posts`, confirmation), filterable via `secret_drawer_levers`               | ✅ (M4) |
 | Socrates      | The bust that started it all — portrait + caption (post-plan addition)                                                                                             | ✅      |
+| Dice          | d2/d6/d12/d20 picker, roll with CSS tumble, last-five history in localStorage. Client-side only, no REST                                                            | ✅      |
+| Site Vitals   | WP/PHP versions, memory, WP_DEBUG, theme; autoload size, plugins (active | inactive split card, warns on inactive side at 5+), missed schedules, env type, HTTPS, object cache, live site clock. 1-hour transient (schema-keyed, clock excluded), `secret_drawer_vitals` filter | ✅      |
+| Passphrase    | Random words (3–6) + optional two-digit suffix, ~8 bits/word from a 256-word list, entropy readout; crypto.getRandomValues, **no REST, no storage of any kind**, copy via clipboard API (denied/no-API failures show an amber `copyFail`
+      snackbar — new `sd-toast--warn` tone, `role="alert"`). Client-only cubby #2 | ✅      |
+| Focus Timer   | short pomodoro, 1/5/10/20 chips; state machine lives in drawer scope (`timer` object), **survives panel pops** (paint-on-mount via `paintTimer()`), 250ms tick against `endAt` (drift-free, pause-safe); finish = CSS pulse (reduced-motion-safe) + auto re-pop via `showCubby('timer')` + toast; **drawer close resets** (`onClose`). Chips re-pick = reset. No REST, no storage | ✅      |
+| Library       | ~~removed~~ — the Cubby Library lives in Settings only. Clicking a pack card opens a pop-out panel client-rendered from `config.packs` (`pack:` synthetic panel id, no REST); rows edit the settings draft, Save commits, panels close on Save/Back. The launcher never shows packs | ✅ (M7) |
 
 ## UX & accessibility (as built)
 
@@ -174,7 +191,7 @@ Global: `window.SecretDrawer.{open, close, toggle, showCubby(id)}`.
 | M4 Cubby API, registry, levers, extending doc                                       | ✅                                                                     |
 | M5 Polish & release-readiness (i18n audit, `readme.txt`, RTL, Plugin Check, v1.0.0) | ✅ — tagged & released                                                 |
 | CP4 pre-release human pass                                                          | ✅                                                                     |
-| M6 Desk-odds-and-ends cubby pack                                                    | ⏳ planned next                                                        |
+| M6 Desk-odds-and-ends cubby pack                                                    | ✅ all four shipped — dice, vitals, passphrase, timer                       |
 | Post-release extras                                                                 | ✅ Socrates cubby, Playground demo, CI release workflow, README revamp |
 
 ## What's planned next

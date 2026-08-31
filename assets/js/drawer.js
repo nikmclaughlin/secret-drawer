@@ -30,6 +30,7 @@
 		saving: false,
 		draft: null, // Working copy of settings in the settings view.
 		panels: [], // Open pop-out panels, launcher-first: { el, parent, cubbyId }.
+		panels: [], // Open pop-out panels, launcher-first: { el, parent, cubbyId }.
 		firstRun: ! config.discovered && ! window.localStorage.getItem( STORE_KEY + '.discovered' )
 	};
 
@@ -196,8 +197,440 @@
 			wireLinks( mount );
 		} else if ( 'levers' === id ) {
 			wireLevers( mount );
+		} else if ( 'dice' === id ) {
+			wireDice( mount );
+		} else if ( 'passphrase' === id ) {
+			wirePassphrase( mount );
+		} else if ( 'timer' === id ) {
+			wireTimer( mount );
+		} else if ( 0 === id.indexOf( 'pack:' ) ) {
+			wirePackPanel( mount );
 		}
-		// Notifications is display-only.
+	}
+
+	/**
+	 * Dice: delegated click handling for the picker and roll button.
+	 * Entirely client-side — Math.random produces the roll, CSS tumbles
+	 * the face, localStorage keeps the last five rolls. No REST calls.
+	 */
+	function wireDice( mount ) {
+		if ( mount.dataset.diceWired ) {
+			return;
+		}
+		mount.dataset.diceWired = '1';
+
+		// Same check the drawer chrome uses for confetti/slides.
+		function reduceMotion() {
+			return !!( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches );
+		}
+
+		// The last key is the newest roll; oldest drops off the front.
+		var historyKey = STORE_KEY + '.dice.last5';
+		var history = [];
+		try {
+			history = JSON.parse( window.localStorage.getItem( historyKey ) || '[]' );
+		} catch ( e ) {
+			history = []; // Corrupt entry — start fresh.
+		}
+		if ( ! ( history instanceof Array ) ) {
+			history = [];
+		}
+
+		var maxEl = mount.querySelector( '.sd-dice-max' );
+		var valueEl = mount.querySelector( '.sd-dice-value' );
+		var faceEl = mount.querySelector( '.sd-dice-face' );
+		var listEl = mount.querySelector( '.sd-dice-roll-list' );
+
+		function currentSides() {
+			var checked = mount.querySelector( '.sd-dice-sides:checked' );
+			return checked ? parseInt( checked.value, 10 ) || 20 : 20;
+		}
+
+		function paintHistory() {
+			if ( listEl ) {
+				listEl.textContent = history.length ? history.join( ' · ' ) : '—';
+			}
+		}
+
+		mount.addEventListener( 'click', function ( event ) {
+			var btn = event.target.closest( '[data-sd-dice-roll]' );
+			if ( ! btn || btn.disabled ) {
+				return;
+			}
+
+			var sides = currentSides();
+			var result = 1 + Math.floor( Math.random() * sides );
+
+			if ( maxEl ) {
+				maxEl.textContent = ( S.diceOf || 'of %d' ).replace( '%d', String( sides ) );
+			}
+
+			// Face tumbles while the roll is decided instantly — no await game.
+			if ( faceEl && ! reduceMotion() ) {
+				faceEl.classList.remove( 'sd-dice-tumble' );
+				// Force a style flush so the animation can restart.
+				void faceEl.offsetWidth;
+				faceEl.classList.add( 'sd-dice-tumble' );
+			}
+
+			// The number lands after a beat, like it settled.
+			window.setTimeout( function () {
+				if ( valueEl ) {
+					valueEl.textContent = String( result );
+				}
+				history.push( result );
+				if ( history.length > 5 ) {
+					history = history.slice( -5 );
+				}
+				try {
+					window.localStorage.setItem( historyKey, JSON.stringify( history ) );
+				} catch ( e ) {
+					/* private mode etc. — history just won't persist */
+				}
+				paintHistory();
+			}, reduceMotion() ? 0 : 650 );
+
+			// Announce immediately for screen readers regardless of timing.
+			if ( valueEl ) {
+				valueEl.setAttribute( 'data-value', String( result ) );
+			}
+		} );
+
+		paintHistory();
+	}
+
+	/**
+	 * Passphrase: client-only generation via crypto.getRandomValues.
+	 * Server-rendered markup meets it here; no REST call anywhere in
+	 * this function — the promise printed on the card is backed by this
+	 * block containing no fetch() at all.
+	 *
+	 * A 256-word list gives a clean 8 bits per word; the optional
+	 * two-digit suffix adds about 6.6 more. Words are drawn without
+	 * replacement from fresh bytes for every passphrase.
+	 */
+	var PASS_WORDS = [
+		'time','year','people','way','day','man','thing','woman','life','child','world','school','state','family','student','group',
+		'country','problem','hand','part','place','case','week','company','system','program','question','work','government','number','night','point',
+		'home','water','room','mother','area','money','story','fact','month','lot','right','study','book','eye','job','word',
+		'business','issue','side','kind','head','house','service','friend','father','power','hour','game','line','end','member','law',
+		'car','city','name','team','minute','idea','body','back','parent','face','level','office','door','health','person','art',
+		'morning','reason','research','air','teacher','force','education','foot','boy','sea','road','dog','chair','sun','key','fire',
+		'hill','cake','moon','rain','wind','ship','snow','corn','bread','song','king','star','bird','farm','gold','fish',
+		'tree','lamp','cup','box','ring','pen','map','leaf','wave','rock','bell','coat','card','gift','town','band',
+		'river','beach','train','plane','horse','sheep','cloud','storm','grass','stone','brick','glass','paper','steel','cloth','fiber',
+		'north','south','east','west','summer','winter','spring','autumn','dawn','dusk','noon','midnight','thunder','frost','mist','haze',
+		'apple','grape','lemon','melon','olive','wheat','cream','honey','milk','tea','coffee','sugar','salt','pepper','onion','carrot',
+		'doctor','lawyer','pilot','sailor','farmer','baker','barber','dancer','singer','writer','painter','player','brother','sister','uncle','cousin',
+		'garden','forest','desert','valley','meadow','canyon','jungle','shore','reef','cave','cliff','dune','pond','lake','marsh','swamp',
+		'anchor','sail-boat','harbor','island','beacon','lagoon','prairie','tundra','summit','canyon-valley','oasis','delta','estuary','fjord','glacier','ridge',
+		'heart','soul','mind','dream','hope','trust','truth','laugh','smile','wink','chime','echo','shadow','spark','glow','flame',
+		'drum','horn','flute','fiddle','tango','waltz','tempo','opera','chorus','melody','rhythm','riddle','puzzle','story-teller','legend','myth'
+	];
+
+	/**
+	 * Passphrase: delegated click handling for generate/copy buttons.
+	 * Generation is crypto.getRandomValues in the browser; nothing is
+	 * stored and nothing is sent — no REST calls, no usermeta, no
+	 * localStorage.
+	 */
+	function wirePassphrase( mount ) {
+		if ( mount.dataset.passWired ) {
+			return;
+		}
+		mount.dataset.passWired = '1';
+
+		var readout = mount.querySelector( '.sd-pass-readout' );
+		var bitsEl = mount.querySelector( '.sd-pass-bits' );
+		var countEl = mount.querySelector( '.sd-pass-count' );
+		var numEl = mount.querySelector( '.sd-pass-number' );
+
+		// 8 bits per word; a 10–99 suffix is log2(90) ≈ 6.6 bits.
+		function entropyBits( words, withNumber ) {
+			return Math.round( 8 * words + ( withNumber ? 6.6 : 0 ) );
+		}
+
+		function regenerate() {
+			if ( ! ( window.crypto && window.crypto.getRandomValues ) ) {
+				if ( readout ) {
+					readout.textContent = S.passNoCrypto || '—';
+				}
+				return;
+			}
+
+			var words = Math.max( 3, Math.min( 6, parseInt( countEl && countEl.value, 10 ) || 4 ) );
+			var withNumber = !!( numEl && numEl.checked );
+			var draws = words + ( withNumber ? 1 : 0 );
+			var bytes = new Uint8Array( draws );
+			window.crypto.getRandomValues( bytes );
+
+			// Draw without replacement so one passphrase never repeats a word.
+			var pool = PASS_WORDS.slice();
+			var picked = [];
+			var i, idx;
+			for ( i = 0; i < words; i++ ) {
+				idx = bytes[ i ] % pool.length; // bias ≤ ~0.4% on short pools — acceptable at 8 bits/word.
+				picked.push( pool.splice( idx, 1 )[ 0 ] );
+			}
+
+			var pass = picked.join( '-' );
+			if ( withNumber ) {
+				pass += '-' + ( 10 + ( bytes[ words ] % 90 ) );
+			}
+
+			if ( readout ) {
+				readout.textContent = pass;
+			}
+			if ( bitsEl ) {
+				bitsEl.textContent = '≈' + entropyBits( words, withNumber ) + ' bits';
+			}
+		}
+
+		mount.addEventListener( 'click', function ( event ) {
+			if ( event.target.closest( '[data-sd-pass-regen]' ) ) {
+				regenerate();
+				return;
+			}
+
+			if ( event.target.closest( '[data-sd-pass-copy]' ) ) {
+				var value = readout ? readout.textContent : '';
+				if ( ! value || '—' === value ) {
+					snackbar( S.passNothing || 'Generate a passphrase first.' );
+					return;
+				}
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					navigator.clipboard.writeText( value ).then( function () {
+						snackbar( S.copied || 'Copied ✓' );
+					}, function () {
+						// API exists but the write was denied.
+						snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
+					} );
+				} else {
+					// No clipboard API at all — typical on plain http.
+					snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
+				}
+			}
+		} );
+
+		// Any control change re-rolls: always in sync with what copy takes.
+		mount.addEventListener( 'change', function ( event ) {
+			if ( event.target.closest( '.sd-pass-count, .sd-pass-number' ) ) {
+				regenerate();
+			}
+		} );
+
+		regenerate(); // Something worth copying from the first glance.
+	}
+
+	/**
+	 * Focus timer: a 20-minute countdown that survives its own panel
+	 * being closed and re-opened. All state lives HERE in drawer scope
+	 * (never in the panel DOM); the panel is a viewport we re-paint on
+	 * mount via paintTimer(). One countdown per drawer; dies on drawer
+	 * close (resetTimer runs from close()).
+	 */
+	var timer = { remaining: 20 * 60, total: 20 * 60, running: false, endAt: 0, tick: 0 };
+
+	function timerMins() {
+		var checked = document.querySelector( 'input[name="sd-timer-mins"]:checked' );
+		return checked ? parseInt( checked.value, 10 ) || 25 : 25;
+	}
+
+	function timerFmt( totalSeconds ) {
+		var m = Math.floor( totalSeconds / 60 );
+		var s = totalSeconds % 60;
+		return m + ':' + ( s < 10 ? '0' : '' ) + s;
+	}
+
+	/** Repaint the panel from state — called on mount, every tick, pause. */
+	function paintTimer() {
+		var mount = document.querySelector( '[data-sd-timer]' );
+		if ( ! mount ) {
+			return;
+		}
+		var time = mount.querySelector( '.sd-timer-time' );
+		var status = mount.querySelector( '.sd-timer-status' );
+		var startB = mount.querySelector( '[data-sd-timer-start]' );
+		var pauseB = mount.querySelector( '[data-sd-timer-pause]' );
+		var resetB = mount.querySelector( '[data-sd-timer-reset]' );
+		if ( ! time ) {
+			return;
+		}
+		time.textContent = timerFmt( timer.running ? Math.max( 0, Math.ceil( ( timer.endAt - Date.now() ) / 1000 ) ) : timer.remaining );
+		var running = timer.running;
+		if ( startB ) {
+			startB.hidden = running;
+			startB.textContent = timer.remaining < timer.total ? ( config.strings.timerResume || 'Resume' ) : ( config.strings.timerStart || 'Start' );
+		}
+		if ( pauseB ) {
+			pauseB.hidden = ! running;
+		}
+		if ( resetB ) {
+			// Hidden only when idle at full duration (nothing to undo);
+			// visible when running, paused, or exhausted — always a way back.
+			resetB.hidden = ! timer.running && timer.remaining === timer.total;
+		}
+		if ( status ) {
+			status.textContent = running ? ( config.strings.timerRunning || 'Focus — it is running.' ) : '';
+		}
+	}
+
+	/**
+	 * Pack panels: add/remove a pack's cubbies (and the whole pack) while
+	 * the settings draft is live. Packs are presentation-only (no REST
+	 * route), so panels render client-side and edit the settings draft;
+	 * the settings Save button commits. Panels close with the draft, so
+	 * they never show stale state.
+	 *
+	 * Bridge: toggleCubby() lives inside Settings() (it mutates the draft
+	 * and re-renders). Pack-panel wiring is module-level, so it reaches
+	 * the draft through this hook — set when the Settings view mounts,
+	 * cleared when it unmounts.
+	 */
+	var packPanelToggle = null;
+	var packRepaints = []; // Mounts of open pack panels.
+
+	/** Repaint every open pack panel — call after each draft change. */
+	function renderPackPanels() {
+		// Drop mounts whose panels closed (DOM gone), then repaint the rest.
+		packRepaints = packRepaints.filter( function ( m ) {
+			return m && document.contains( m );
+		} );
+		packRepaints.forEach( function ( m ) {
+			if ( m.packRepaint ) {
+				m.packRepaint();
+			}
+		} );
+	}
+
+	/** Track a pack panel's mount so draft edits can repaint it. */
+	function registerPackRepaint( mount ) {
+		if ( packRepaints.indexOf( mount ) === -1 ) {
+			packRepaints.push( mount );
+		}
+	}
+
+	function wirePackPanel( mount ) {
+		if ( mount.dataset.packWired ) {
+			return;
+		}
+		mount.dataset.packWired = '1';
+		mount.addEventListener( 'click', function ( e ) {
+			var row = e.target.closest( '[data-pack-cubby]' );
+			var addAll = e.target.closest( '.sd-pack-addall' );
+			if ( ! row && ! addAll ) {
+				return;
+			}
+			if ( ! state.draft || typeof packPanelToggle !== 'function' ) {
+				return; // Settings closed between render and click.
+			}
+			if ( addAll ) {
+				var pid = addAll.getAttribute( 'data-pack' );
+				var pack = ( config.packs || {} )[ pid ];
+				if ( pack && pack.members ) {
+					pack.members.forEach( function ( cid ) {
+						packPanelToggle( cid, true );
+					} );
+					renderPackPanels();
+				}
+				return;
+			}
+			var id = row.getAttribute( 'data-pack-cubby' );
+			var on = row.getAttribute( 'data-on' ) === '1';
+			packPanelToggle( id, ! on );
+			renderPackPanels();
+		} );
+	}
+
+	function wireTimer( mount ) {
+		if ( mount.dataset.timerWired ) {
+			return;
+		}
+		mount.dataset.timerWired = '1';
+		mount.addEventListener( 'click', function ( event ) {
+			if ( event.target.closest( '[data-sd-timer-start]' ) ) {
+				startTimer();
+			} else if ( event.target.closest( '[data-sd-timer-pause]' ) ) {
+				pauseTimer();
+			} else if ( event.target.closest( '[data-sd-timer-reset]' ) ) {
+				resetTimer();
+			} else if ( event.target.closest( 'input[name="sd-timer-mins"]' ) ) {
+				// New duration chosen: that IS the reset. (Even mid-run —
+				// surprising auto-jumps to running timers are worse than a reset.)
+				resetTimer();
+			}
+		} );
+		paintTimer();
+	}
+
+	/** One paint + reschedule. Fires the finish sequence at zero. */
+	function timerTick() {
+		paintTimer();
+		if ( ! timer.running ) {
+			return;
+		}
+		var left = Math.ceil( ( timer.endAt - Date.now() ) / 1000 );
+		if ( 0 >= left ) {
+			timer.running = false;
+			timer.tick = 0;
+			timerFinish();
+			return;
+		}
+		timer.tick = window.setTimeout( timerTick, 250 );
+	}
+
+	/** Start (or resume): stamps endAt so ticks are drift-free. */
+	function startTimer() {
+		if ( ! timer.running ) {
+			timer.endAt = Date.now() + timer.remaining * 1000;
+			timer.total = timer.total || timer.remaining;
+			timer.running = true;
+			timer.tick = window.setTimeout( timerTick, 250 );
+		}
+		paintTimer();
+	}
+
+	/** Pause: freeze at the shown remainder. */
+	function pauseTimer() {
+		if ( timer.running ) {
+			timer.remaining = Math.max( 0, Math.ceil( ( timer.endAt - Date.now() ) / 1000 ) );
+			timer.running = false;
+			window.clearTimeout( timer.tick );
+		}
+		paintTimer();
+	}
+
+	/** Reset to the picker's minutes, fully stopped. */
+	function resetTimer() {
+		window.clearTimeout( timer.tick );
+		timer.running = false;
+		timer.remaining = timerMins() * 60;
+		timer.total = timer.remaining;
+		paintTimer();
+	}
+
+	/** Run-to-zero: pulse (skip under reduced motion) + re-pop panel + toast. */
+	function timerFinish() {
+		paintTimer();
+		var mount = document.querySelector( '[data-sd-timer]' );
+		if ( mount && ! reduceMotion() ) {
+			mount.classList.add( 'sd-timer--done' );
+			window.setTimeout( function () {
+				var m = document.querySelector( '[data-sd-timer]' );
+				if ( m ) {
+					m.classList.remove( 'sd-timer--done' );
+				}
+			}, 2600 );
+		}
+		document.dispatchEvent( new CustomEvent( 'secret-drawer:cubby:timer:done', { detail: { minutes: Math.round( timer.total / 60 ) } } ) );
+		// Attention without nagging: re-open the panel if it was closed.
+		if ( config.strings.timerDone ) {
+			showCubby( 'timer' );
+			paintTimer();
+			snackbar( config.strings.timerDone );
+		}
+		// Back to a fresh slate at the same duration; user starts when ready.
+		timer.remaining = timer.total;
 	}
 
 	/**
@@ -233,10 +666,10 @@
 					navigator.clipboard.writeText( url ).then( function () {
 						snackbar( S.copied || 'Copied ✓' );
 					}, function () {
-						snackbar( url );
+						snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
 					} );
 				} else {
-					snackbar( url );
+					snackbar( S.copyFail || 'Copy failed — couldn’t access the clipboard.', { tone: 'warn' } );
 				}
 				return;
 			}
@@ -755,6 +1188,12 @@
 
 	function onClose() {
 		document.dispatchEvent( new CustomEvent( 'secret-drawer:close' ) );
+		// The plan's one timer rule: state dies with the whole drawer.
+		// (Panel pops deliberately do NOT reset — pause-and-peek at the
+		// launcher grid, or open a note mid-count, without losing focus.)
+		window.clearTimeout( timer.tick );
+		timer.running = false;
+		timer.remaining = 20 * 60;
 	}
 
 	function open() {
@@ -894,15 +1333,31 @@
 			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
 			'<div class="sd-body"></div>';
 		layer.appendChild( el );
-		el.querySelector( '.sd-title' ).textContent = cubbyTitle( cubbyId );
+		el.querySelector( '.sd-title' ).textContent = panelTitle( cubbyId );
 		state.panels.push( { el: el, parent: parent, cubbyId: cubbyId, ro: watchPanel( el ) } );
 		restackPanels();
-		fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
-		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
-			popPanel( el );
-		} );
-		// Public event for cubby authors: this cubby is now on screen.
-		emitCubbyShown( cubbyId );
+
+		if ( 0 === cubbyId.indexOf( 'pack:' ) ) {
+			// Pack panel: rendered client-side from config.packs — packs
+			// are never persisted, so there is no pack REST route to fetch.
+			// Its close button still needs wiring, same as a cubby panel.
+			packPanelBody( el.querySelector( '.sd-body' ), cubbyId );
+			el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+				popPanel( el );
+			} );
+		} else {
+			fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
+			el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+				popPanel( el );
+			} );
+			// Public event for cubby authors: this cubby is now on screen.
+			emitCubbyShown( cubbyId );
+		}
+	}
+
+	/** Pack card click: pop the pack out as a panel (`pack:` synthetic id). */
+	function openPackPanel( pid ) {
+		openPanel( 'pack:' + pid, null );
 	}
 
 	/** The record for `target` plus every panel chained beneath it. */
@@ -1097,6 +1552,107 @@
 		return meta ? meta.title : id;
 	}
 
+	/** Panel title: cubby title, or the pack title for `pack:` panels. */
+	function panelTitle( id ) {
+		if ( 0 === id.indexOf( 'pack:' ) ) {
+			var pid = id.slice( 'pack:'.length );
+			var pack = ( config.packs || {} )[ pid ];
+			return ( pack && pack.title ) ? pack.title : pid;
+		}
+		return cubbyTitle( id );
+	}
+
+	/**
+	 * Pack panel body, client-rendered from config.packs. One row per
+	 * member showing Add/Remove state from the live settings draft, and
+	 * an Add all button when members remain. Rows re-render after every
+	 * click (repaint) so button states and the Add-all button always
+	 * match the draft.
+	 */
+	/** Minimal HTML escaping: pack-panel markup is template strings. */
+	function escapeHtml( value ) {
+		return String( null === value || undefined === value ? '' : value )
+			.replace( /&/g, '&amp;' )
+			.replace( /</g, '&lt;' )
+			.replace( />/g, '&gt;' )
+			.replace( /"/g, '&quot;' )
+			.replace( /'/g, '&#39;' );
+	}
+
+	/** HTML for a pack panel: description, member rows, Add all. */
+	function packPanelHtml( packId, pack ) {
+		var S = config.strings;
+		var draft = state.draft;
+		var enabled = ( draft && draft.enabled_cubbies ) ? draft.enabled_cubbies : [];
+
+		var rows = ( pack.members || [] ).map( function ( id ) {
+			var meta = config.catalog[ id ] || {};
+			var on = enabled.indexOf( id ) !== -1;
+			var title = meta.title || id;
+			return (
+				'<div class="sd-row" data-pack-cubby="' + escapeHtml( id ) + '" data-on="' + ( on ? '1' : '0' ) + '">' +
+					'<span><strong>' + escapeHtml( title ) + '</strong>' +
+					( meta.description ? '<span class="sd-muted sd-row-desc">' + escapeHtml( meta.description ) + '</span>' : '' ) +
+					'</span>' +
+					'<button type="button" class="sd-icon-button" aria-label="' +
+						escapeHtml( ( on ? S.removeLabel : S.add ) + ' ' + title ) + '">' +
+						( on ? '−' : '+' ) +
+					'</button>' +
+				'</div>'
+			);
+		} ).join( '' );
+
+		// Add all commits every member still outside the draft.
+		var remaining = ( pack.members || [] ).filter( function ( id ) {
+			return enabled.indexOf( id ) === -1;
+		} ).length;
+
+		return (
+			( pack.description ? '<p class="sd-muted sd-pack-desc">' + escapeHtml( pack.description ) + '</p>' : '' ) +
+			rows +
+			( remaining > 0
+				? '<button type="button" class="sd-pack-addall" data-pack="' + escapeHtml( packId ) + '">' +
+					escapeHtml( S.addAll || 'Add all' ) + ' (' + remaining + ')</button>'
+				: '' )
+		);
+	}
+
+	function packPanelBody( mount, cubbyId ) {
+		var packId = cubbyId.slice( 'pack:'.length );
+		var pack = ( config.packs || {} )[ packId ];
+		if ( ! pack ) {
+			return;
+		}
+
+		var paint = function () {
+			mount.innerHTML = packPanelHtml( packId, pack );
+		};
+		paint();
+		wirePackPanel( mount );
+
+		// Repaint after each draft edit (packPanelToggle → renderPackPanels).
+		mount.packRepaint = function () {
+			paint();
+		};
+		registerPackRepaint( mount );
+	}
+
+	/**
+	 * Icon class for a cubby card. Anything starting with "dashicons-"
+	 * rides the dashicons font as before; anything else is treated as a
+	 * literal glyph (emoji or character) rendered as the span's text.
+	 */
+	function iconClass( icon ) {
+		var value = icon || 'dashicons-marker';
+		return 'sd-card-icon ' + ( 0 === value.indexOf( 'dashicons-' ) ? 'dashicons ' + value : 'sd-glyph' );
+	}
+
+	/** Text content for a cubby card icon (glyph only, empty for dashicons). */
+	function iconGlyph( icon ) {
+		var value = icon || 'dashicons-marker';
+		return 0 === value.indexOf( 'dashicons-' ) ? '' : value;
+	}
+
 	function Drawer() {
 		if ( 'settings' === state.view ) {
 			return h( Settings );
@@ -1117,7 +1673,7 @@
 					openPanel( cubby.id, null );
 				}
 			},
-				h( 'span', { className: 'sd-card-icon dashicons ' + ( cubby.icon || 'dashicons-marker' ), 'aria-hidden': 'true' } ),
+				h( 'span', { className: iconClass( cubby.icon ), 'aria-hidden': 'true' }, iconGlyph( cubby.icon ) ),
 				h( 'span', { className: 'sd-card-title' }, cubby.title )
 			);
 		} );
@@ -1172,7 +1728,7 @@
 				)
 			),
 			h( 'div', { className: 'sd-body' }, body ),
-			h( 'footer', { className: 'sd-footer' }, '🤫' )
+			h( 'footer', { className: 'sd-footer sd-wink' }, '🤫' )
 		);
 	}
 
@@ -1198,11 +1754,13 @@
 		restackPanels();
 	}
 
-	/** Dark pill, bottom center — reused for "Saved ✓". */
-	function snackbar( text ) {
+	/** Dark pill, bottom center — reused for "Saved ✓" and warnings. */
+	function snackbar( text, opts ) {
+		opts = opts || {};
 		var el = document.createElement( 'div' );
-		el.className = 'sd-toast';
-		el.setAttribute( 'role', 'status' );
+		el.className = 'sd-toast' + ( opts.tone ? ' sd-toast--' + opts.tone : '' );
+		// Warnings announce assertively; ordinary notices stay polite.
+		el.setAttribute( 'role', 'warn' === opts.tone ? 'alert' : 'status' );
 		el.textContent = text;
 		document.body.appendChild( el );
 		window.setTimeout( function () {
@@ -1257,10 +1815,94 @@
 		var className = 'sd-drawer sd-drawer--' + position + ' is-open';
 
 		function toggleCubby( id, on ) {
+			// Adding is idempotent: "Add all" sweeps every member, and
+			// re-adding one that's already enabled must not duplicate it.
 			draft.enabled_cubbies = on
-				? draft.enabled_cubbies.concat( [ id ] )
+				? ( -1 === draft.enabled_cubbies.indexOf( id )
+					? draft.enabled_cubbies.concat( [ id ] )
+					: draft.enabled_cubbies )
 				: draft.enabled_cubbies.filter( function ( x ) { return x !== id; } );
 			render();
+			renderPackPanels(); // Keep open pack panels in sync with the draft.
+		}
+		// Pack panels write rows through this same toggle function.
+		packPanelToggle = toggleCubby;
+
+		/** Canonical form of a list so compares ignore order. */
+		function canonList( list ) {
+			return ( list || [] ).slice().sort().join( '\n' );
+		}
+
+		/** True when the draft differs from the settings this page loaded with. */
+		function isDirty() {
+			return (
+				draft.trigger_word !== config.trigger ||
+				draft.position !== config.position ||
+				parseInt( draft.width, 10 ) !== parseInt( config.width, 10 ) ||
+				canonList( draft.roles ) !== canonList( config.roles ) ||
+				canonList( draft.enabled_cubbies ) !==
+					canonList( ( config.cubbies || [] ).map( function ( c ) { return c.id; } ) )
+			);
+		}
+
+		/** Library top level: pack cards, then any ungrouped cubbies. */
+		function libraryTop() {
+			var packs = config.packs || {};
+			var packIds = Object.keys( packs );
+
+			var cards = packIds.map( function ( pid ) {
+				var pack = packs[ pid ];
+				var added = pack.members.filter( function ( id ) {
+					return draft.enabled_cubbies.indexOf( id ) !== -1;
+				} ).length;
+				// "%1$d of %2$d added" — fill added first, then pack size.
+				var label = ( S.ofD || '%1$d of %2$d added' )
+					.replace( '%1$d', String( added ) )
+					.replace( '%2$d', String( pack.members.length ) );
+
+				return h( 'button', {
+					key: pid,
+					type: 'button',
+					className: 'sd-card sd-pack-card',
+					onClick: function () {
+						openPackPanel( pid );
+					}
+				},
+					h( 'span', { className: iconClass( pack.icon ), 'aria-hidden': 'true' }, iconGlyph( pack.icon ) ),
+					h( 'span', { className: 'sd-card-title' }, pack.title ),
+					label ? h( 'span', { className: 'sd-muted sd-pack-count' }, label ) : null
+				);
+			} );
+
+			// Ungrouped cubbies: today's flat rows, alongside the packs.
+			var flat = Object.keys( config.catalog ).filter( function ( id ) {
+				return draft.enabled_cubbies.indexOf( id ) === -1
+					&& ! ( ( config.catalog[ id ].pack || '' ) && packs[ config.catalog[ id ].pack ] );
+			} ).map( function ( id ) {
+				return cubbyRow( id );
+			} );
+
+			return h( 'div', null,
+				cards.length ? h( 'div', { className: 'sd-cubby-grid' }, cards ) : null,
+				flat.length ? flat : null
+			);
+		}
+
+		/** One addable cubby row (title, description, + button). */
+		function cubbyRow( id ) {
+			var meta = config.catalog[ id ] || {};
+			return h( 'div', { key: id, className: 'sd-row' },
+				h( 'span', null,
+					h( 'strong', null, meta.title || id ),
+					h( 'span', { className: 'sd-muted sd-row-desc' }, meta.description || '' )
+				),
+				h( 'button', {
+					className: 'sd-icon-button',
+					type: 'button',
+					'aria-label': ( S.add || 'Add' ) + ' ' + ( meta.title || id ),
+					onClick: function () { toggleCubby( id, true ); }
+				}, '+' )
+			);
 		}
 
 		function save() {
@@ -1286,6 +1928,8 @@
 				state.saving = false;
 				state.view = 'drawer';
 				state.draft = null;
+				packPanelToggle = null; // Draft gone: pack panels idle.
+				closeAllPanels();
 				render();
 				snackbar( config.strings.saved );
 			} ).catch( function () {
@@ -1314,6 +1958,8 @@
 					'aria-label': S.back,
 					onClick: function () {
 						state.view = 'drawer';
+						packPanelToggle = null; // Same cleanup as a save: no draft, no panels.
+						closeAllPanels();
 						render();
 					}
 				}, '←' ),
@@ -1400,30 +2046,15 @@
 				} ) : h( 'p', { className: 'sd-muted' }, S.emptyDrawer || 'This drawer is empty. Add something from the library.' ) ),
 
 				h( 'h3', null, S.library ),
-				Object.keys( config.catalog ).filter( function ( id ) {
-					return draft.enabled_cubbies.indexOf( id ) === -1;
-				} ).map( function ( id ) {
-					var meta = config.catalog[ id ];
-					return h( 'div', { key: id, className: 'sd-row' },
-						h( 'span', null,
-							h( 'strong', null, meta.title ),
-							h( 'span', { className: 'sd-muted sd-row-desc' }, meta.description || '' )
-						),
-						h( 'button', {
-							className: 'sd-icon-button',
-							type: 'button',
-							'aria-label': ( S.add || 'Add' ) + ' ' + meta.title,
-							onClick: function () { toggleCubby( id, true ); }
-						}, '+' )
-					);
-				} )
+				libraryTop()
 			),
 			h( 'footer', { className: 'sd-footer sd-settings-footer' },
 				h( 'span', { className: 'sd-save-status', role: 'status' } ),
 				h( Button, {
 					variant: 'primary',
 					isBusy: state.saving,
-					disabled: state.saving,
+					disabled: state.saving || ! isDirty(),
+					className: ( isDirty() || state.saving ) ? 'sd-save-dirty' : undefined,
 					onClick: save
 				}, S.save )
 			)

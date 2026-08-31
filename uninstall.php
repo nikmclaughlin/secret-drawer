@@ -27,5 +27,9 @@ foreach ( (array) $secret_drawer_cubby_keys as $secret_drawer_meta_key ) {
 	delete_metadata( 'user', 0, $secret_drawer_meta_key, '', true );
 }
 
-// Notifications cache transient (per-site on multisite).
-delete_transient( 'secret_drawer_notif_' . get_current_blog_id() );
+// Cached transients. Keys live in the cubby classes but are inlined here:
+// uninstall runs outside the plugin bootstrap, no class loading needed.
+// delete_transient() applies the current blog's prefix on multisite, and
+// WordPress executes this file once per site, so per-site caches are swept.
+delete_transient( 'secret_drawer_notifications' );
+delete_transient( 'secret_drawer_vitals' );

@@ -1,7 +1,8 @@
 # Extending Secret Drawer
 
-Secret Drawer ships with four built-in cubbies — Notes, Quick Links,
-Notifications, and Levers — but the drawer is meant to be extended.
+Secret Drawer ships with nine built-in cubbies — Notes, Quick Links,
+Notifications, Levers, Socrates, Dice, Site Vitals, Passphrase, and
+Focus Timer — but the drawer is meant to be extended.
 This guide shows how other plugins (or your site's own `functions.php`,
 if you insist) add their own cubbies and levers.
 
@@ -23,7 +24,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 		'id'          => 'todo',                  // [a-z0-9_-]+ — used in the REST route
 		'title'       => __( 'Team Todo', 'my-plugin' ),
 		'description' => __( 'A shared list of things to do.', 'my-plugin' ),
-		'icon'        => 'dashicons-list-view',   // any dashicons-* class
+		'icon'        => 'dashicons-list-view',   // any dashicons-* class, or a literal glyph (e.g. an emoji)
 		'capability'  => 'edit_pages',            // per-type gate (optional)
 		'singleton'   => true,                    // v1: all types are single-instance
 		'order'       => 40,                      // sort position (default 50)
@@ -43,12 +44,13 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 | `id`          | string   | yes      | Array key; must match `[a-z0-9_-]+` (it becomes a REST route segment). |
 | `title`       | string   | yes      | Entries without a title are treated as hidden and dropped.             |
 | `description` | string   | no       | Shown in the cubby library / settings picker.                          |
-| `icon`        | string   | no       | Dashicon class; defaults to `dashicons-marker`.                        |
+| `icon`        | string   | no       | Dashicon class (e.g. `dashicons-smiley`) or a literal glyph (emoji works — anything not prefixed `dashicons-` renders as the text). Defaults to `dashicons-marker`. |
 | `capability`  | string   | no       | Per-type gate, checked against the current user at enqueue *and* at render time. |
 | `singleton`   | bool     | no       | Reserved. All v1 cubby types are single-instance.                      |
 | `order`       | int      | no       | Sort position in the launcher; ties keep registration order.           |
 | `refresh_on`  | string   | no       | `'open'` (default) re-fetches the body each time the cubby opens; `'never'` fetches once per page load. |
 | `render`      | callable | no       | Returns the cubby's body HTML. Built-ins omit this and use their dedicated classes. |
+| `pack`        | string   | no       | Pack id (same `[a-z0-9_-]+` charset) grouping this cubby in the Cubby Library. Cubbies without a pack (the default) appear as plain library rows. |
 
 ### How it surfaces
 
@@ -61,6 +63,37 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 - **Settings sanitizer** — `enabled_cubbies` validates against *all*
   registered ids, regardless of who is saving or what they can see, so a
   cubby a user can't access can still be enabled for others.
+
+### Packs (optional grouping)
+
+A cubby joins a pack by setting `pack` on its entry. In drawer settings,
+the Cubby Library shows pack cards first; clicking one opens a pop-out
+panel listing its member cubbies with per-row Add/Remove plus an
+"Add all" bulk button. **Packs are presentation metadata only** — the
+`enabled_cubbies` setting stays a flat list of cubby ids, so reorganizing
+packs in a future update never changes anyone's saved drawer.
+
+Give a pack metadata (title, icon, description, sort order) with the
+`secret_drawer_packs` filter:
+
+```php
+add_filter( 'secret_drawer_packs', function ( array $packs ): array {
+	$packs['desk-things'] = array(
+		'title'       => 'Desk Things',
+		'icon'        => '🗂️', // dashicon class or literal glyph
+		'description' => 'Cubbies for the top of the desk.',
+		'order'       => 30,
+	);
+	return $packs;
+} );
+```
+
+A pack referenced by cubbies but missing from the filter still renders,
+with a humanized id as its title ("desk-things" → "Desk Things") — so
+tagging your cubbies' `pack` field alone is enough to get a pack card.
+Packs with no cubbies visible to the current user are hidden entirely
+(capability gate applies per cubby, so a pack's visibility is just the
+union of its members').
 
 ### Rules of the road
 
@@ -143,7 +176,7 @@ document.addEventListener( 'secret-drawer:cubby:shown', ( e ) => {
 
 Paste into a plugin file (or a one-off `wp-content/mu-plugins/` file)
 and the cubby appears in the library — enable it from the drawer's ⚙️
-settings and it becomes a fifth card:
+settings and it becomes another card:
 
 ```php
 <?php
@@ -157,7 +190,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 		'id'          => 'mood',
 		'title'       => __( 'Mood', 'example' ),
 		'description' => __( 'How is the site feeling today?', 'example' ),
-		'icon'        => 'dashicons-smiley',
+		'icon'        => '🎭',
 		'order'       => 45,
 		'render'      => function (): string {
 			$moods = [ 'thrilled', 'fine', 'holding on', 'chaotic' ];
@@ -172,3 +205,18 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 That's the whole AC: a drop-in file, one filter, one render callback —
 and the drawer grows a new cubby with its own card, panel, and REST
 route, with zero changes to Secret Drawer itself.
+
+---
+
+## Need more than a filter callback?
+
+Drop-ins cover server-rendered bodies well. If your cubby needs its own
+client wiring in `drawer.js`, its own REST routes, or anything else that
+means editing Secret Drawer itself, point your coding assistant at
+**`skills/create-cubby/SKILL.md`** in this folder — it walks the full
+recipe the plugin's own cubbies use: shape choice, the user-data /
+session-data / secrets split, i18n, and the load-time smoke test
+(`node skills/create-cubby/smoke-drawer.js`) that proves `drawer.js`
+still runs after your edits. Remember that editing the plugin's files
+means the next Secret Drawer update will overwrite your work — keep a
+real fork.
