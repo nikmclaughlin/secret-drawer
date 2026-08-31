@@ -99,6 +99,7 @@ class Secret_Drawer_Assets {
 			'discovered'     => (bool) get_user_meta( get_current_user_id(), 'secret_drawer_discovered', true ),
 			'cubbies'        => self::cubbies_for_user( $settings ),
 			'catalog'        => self::catalog_for_user( $settings ),
+			'packs'          => self::packs_for_user(),
 			'roleOptions'    => self::role_options(),
 			'roles'          => (array) $settings['roles'],
 			'manageSettings' => current_user_can( 'manage_options' ),
@@ -147,6 +148,9 @@ class Secret_Drawer_Assets {
 				'timerStart'  => __( 'Start', 'secret-drawer' ),
 				'timerResume' => __( 'Resume', 'secret-drawer' ),
 				'timerDone'   => __( "Time's up — nice focus.", 'secret-drawer' ),
+				'addAll'      => __( 'Add all', 'secret-drawer' ),
+				// translators: %1$d is how many pack members are on, %2$d the pack size.
+				'ofD'         => __( '%1$d of %2$d added', 'secret-drawer' ),
 			),
 		);
 	}
@@ -165,6 +169,26 @@ class Secret_Drawer_Assets {
 				'title'       => $cubby['title'],
 				'icon'        => (string) $cubby['icon'],
 				'description' => (string) $cubby['description'],
+				'pack'        => (string) $cubby['pack'],
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Pack cards for the Cubby Library: same capability gating as the
+	 * catalog itself (a pack with no visible cubbies is not a pack).
+	 *
+	 * @return array[]
+	 */
+	private static function packs_for_user() {
+		$out = array();
+		foreach ( Secret_Drawer_Cubby_Registry::packs() as $id => $pack ) {
+			$out[ $id ] = array(
+				'title'       => $pack['title'],
+				'icon'        => (string) $pack['icon'],
+				'description' => (string) $pack['description'],
+				'members'     => $pack['members'],
 			);
 		}
 		return $out;

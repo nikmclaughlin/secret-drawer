@@ -50,6 +50,7 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 | `order`       | int      | no       | Sort position in the launcher; ties keep registration order.           |
 | `refresh_on`  | string   | no       | `'open'` (default) re-fetches the body each time the cubby opens; `'never'` fetches once per page load. |
 | `render`      | callable | no       | Returns the cubby's body HTML. Built-ins omit this and use their dedicated classes. |
+| `pack`        | string   | no       | Pack id (same `[a-z0-9_-]+` charset) grouping this cubby in the Cubby Library. Cubbies without a pack (the default) appear as plain library rows. |
 
 ### How it surfaces
 
@@ -62,6 +63,37 @@ add_filter( 'secret_drawer_cubbies', function ( array $cubbies ): array {
 - **Settings sanitizer** — `enabled_cubbies` validates against *all*
   registered ids, regardless of who is saving or what they can see, so a
   cubby a user can't access can still be enabled for others.
+
+### Packs (optional grouping)
+
+A cubby joins a pack by setting `pack` on its entry. In drawer settings,
+the Cubby Library shows pack cards first; clicking one opens a pop-out
+panel listing its member cubbies with per-row Add/Remove plus an
+"Add all" bulk button. **Packs are presentation metadata only** — the
+`enabled_cubbies` setting stays a flat list of cubby ids, so reorganizing
+packs in a future update never changes anyone's saved drawer.
+
+Give a pack metadata (title, icon, description, sort order) with the
+`secret_drawer_packs` filter:
+
+```php
+add_filter( 'secret_drawer_packs', function ( array $packs ): array {
+	$packs['desk-things'] = array(
+		'title'       => 'Desk Things',
+		'icon'        => '🗂️', // dashicon class or literal glyph
+		'description' => 'Cubbies for the top of the desk.',
+		'order'       => 30,
+	);
+	return $packs;
+} );
+```
+
+A pack referenced by cubbies but missing from the filter still renders,
+with a humanized id as its title ("desk-things" → "Desk Things") — so
+tagging your cubbies' `pack` field alone is enough to get a pack card.
+Packs with no cubbies visible to the current user are hidden entirely
+(capability gate applies per cubby, so a pack's visibility is just the
+union of its members').
 
 ### Rules of the road
 

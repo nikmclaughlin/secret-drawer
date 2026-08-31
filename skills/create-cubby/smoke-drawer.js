@@ -31,7 +31,7 @@ const file = process.argv[ 2 ] ? path.resolve( process.argv[ 2 ] ) : defaultTarg
 const store = {};
 
 global.window = {
-	SECRET_DRAWER: { restRoot: '', nonce: 'x', session: 's1', strings: {}, cubbies: [], catalog: {} },
+	SECRET_DRAWER: { restRoot: '', nonce: 'x', session: 's1', strings: {}, cubbies: [], catalog: {}, packs: {} },
 	wp: {
 		element: { createElement: () => ( {} ), createRoot: () => ( { render: () => {} } ) },
 		components: {},

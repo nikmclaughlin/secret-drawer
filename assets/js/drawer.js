@@ -30,6 +30,7 @@
 		saving: false,
 		draft: null, // Working copy of settings in the settings view.
 		panels: [], // Open pop-out panels, launcher-first: { el, parent, cubbyId }.
+		panels: [], // Open pop-out panels, launcher-first: { el, parent, cubbyId }.
 		firstRun: ! config.discovered && ! window.localStorage.getItem( STORE_KEY + '.discovered' )
 	};
 
@@ -202,6 +203,8 @@
 			wirePassphrase( mount );
 		} else if ( 'timer' === id ) {
 			wireTimer( mount );
+		} else if ( 0 === id.indexOf( 'pack:' ) ) {
+			wirePackPanel( mount );
 		}
 	}
 
@@ -470,6 +473,73 @@
 		if ( status ) {
 			status.textContent = running ? ( config.strings.timerRunning || 'Focus — it is running.' ) : '';
 		}
+	}
+
+	/**
+	 * Pack panels: add/remove a pack's cubbies (and the whole pack) while
+	 * the settings draft is live. Packs are presentation-only (no REST
+	 * route), so panels render client-side and edit the settings draft;
+	 * the settings Save button commits. Panels close with the draft, so
+	 * they never show stale state.
+	 *
+	 * Bridge: toggleCubby() lives inside Settings() (it mutates the draft
+	 * and re-renders). Pack-panel wiring is module-level, so it reaches
+	 * the draft through this hook — set when the Settings view mounts,
+	 * cleared when it unmounts.
+	 */
+	var packPanelToggle = null;
+	var packRepaints = []; // Mounts of open pack panels.
+
+	/** Repaint every open pack panel — call after each draft change. */
+	function renderPackPanels() {
+		// Drop mounts whose panels closed (DOM gone), then repaint the rest.
+		packRepaints = packRepaints.filter( function ( m ) {
+			return m && document.contains( m );
+		} );
+		packRepaints.forEach( function ( m ) {
+			if ( m.packRepaint ) {
+				m.packRepaint();
+			}
+		} );
+	}
+
+	/** Track a pack panel's mount so draft edits can repaint it. */
+	function registerPackRepaint( mount ) {
+		if ( packRepaints.indexOf( mount ) === -1 ) {
+			packRepaints.push( mount );
+		}
+	}
+
+	function wirePackPanel( mount ) {
+		if ( mount.dataset.packWired ) {
+			return;
+		}
+		mount.dataset.packWired = '1';
+		mount.addEventListener( 'click', function ( e ) {
+			var row = e.target.closest( '[data-pack-cubby]' );
+			var addAll = e.target.closest( '.sd-pack-addall' );
+			if ( ! row && ! addAll ) {
+				return;
+			}
+			if ( ! state.draft || typeof packPanelToggle !== 'function' ) {
+				return; // Settings closed between render and click.
+			}
+			if ( addAll ) {
+				var pid = addAll.getAttribute( 'data-pack' );
+				var pack = ( config.packs || {} )[ pid ];
+				if ( pack && pack.members ) {
+					pack.members.forEach( function ( cid ) {
+						packPanelToggle( cid, true );
+					} );
+					renderPackPanels();
+				}
+				return;
+			}
+			var id = row.getAttribute( 'data-pack-cubby' );
+			var on = row.getAttribute( 'data-on' ) === '1';
+			packPanelToggle( id, ! on );
+			renderPackPanels();
+		} );
 	}
 
 	function wireTimer( mount ) {
@@ -1263,15 +1333,31 @@
 			'<button type="button" class="sd-icon-button sd-panel-close" aria-label="' + ( config.strings.close || 'Close' ) + '">✕</button></header>' +
 			'<div class="sd-body"></div>';
 		layer.appendChild( el );
-		el.querySelector( '.sd-title' ).textContent = cubbyTitle( cubbyId );
+		el.querySelector( '.sd-title' ).textContent = panelTitle( cubbyId );
 		state.panels.push( { el: el, parent: parent, cubbyId: cubbyId, ro: watchPanel( el ) } );
 		restackPanels();
-		fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
-		el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
-			popPanel( el );
-		} );
-		// Public event for cubby authors: this cubby is now on screen.
-		emitCubbyShown( cubbyId );
+
+		if ( 0 === cubbyId.indexOf( 'pack:' ) ) {
+			// Pack panel: rendered client-side from config.packs — packs
+			// are never persisted, so there is no pack REST route to fetch.
+			// Its close button still needs wiring, same as a cubby panel.
+			packPanelBody( el.querySelector( '.sd-body' ), cubbyId );
+			el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+				popPanel( el );
+			} );
+		} else {
+			fetchCubby( cubbyId, el.querySelector( '.sd-body' ), el );
+			el.querySelector( '.sd-panel-close' ).addEventListener( 'click', function () {
+				popPanel( el );
+			} );
+			// Public event for cubby authors: this cubby is now on screen.
+			emitCubbyShown( cubbyId );
+		}
+	}
+
+	/** Pack card click: pop the pack out as a panel (`pack:` synthetic id). */
+	function openPackPanel( pid ) {
+		openPanel( 'pack:' + pid, null );
 	}
 
 	/** The record for `target` plus every panel chained beneath it. */
@@ -1466,6 +1552,91 @@
 		return meta ? meta.title : id;
 	}
 
+	/** Panel title: cubby title, or the pack title for `pack:` panels. */
+	function panelTitle( id ) {
+		if ( 0 === id.indexOf( 'pack:' ) ) {
+			var pid = id.slice( 'pack:'.length );
+			var pack = ( config.packs || {} )[ pid ];
+			return ( pack && pack.title ) ? pack.title : pid;
+		}
+		return cubbyTitle( id );
+	}
+
+	/**
+	 * Pack panel body, client-rendered from config.packs. One row per
+	 * member showing Add/Remove state from the live settings draft, and
+	 * an Add all button when members remain. Rows re-render after every
+	 * click (repaint) so button states and the Add-all button always
+	 * match the draft.
+	 */
+	/** Minimal HTML escaping: pack-panel markup is template strings. */
+	function escapeHtml( value ) {
+		return String( null === value || undefined === value ? '' : value )
+			.replace( /&/g, '&amp;' )
+			.replace( /</g, '&lt;' )
+			.replace( />/g, '&gt;' )
+			.replace( /"/g, '&quot;' )
+			.replace( /'/g, '&#39;' );
+	}
+
+	/** HTML for a pack panel: description, member rows, Add all. */
+	function packPanelHtml( packId, pack ) {
+		var S = config.strings;
+		var draft = state.draft;
+		var enabled = ( draft && draft.enabled_cubbies ) ? draft.enabled_cubbies : [];
+
+		var rows = ( pack.members || [] ).map( function ( id ) {
+			var meta = config.catalog[ id ] || {};
+			var on = enabled.indexOf( id ) !== -1;
+			var title = meta.title || id;
+			return (
+				'<div class="sd-row" data-pack-cubby="' + escapeHtml( id ) + '" data-on="' + ( on ? '1' : '0' ) + '">' +
+					'<span><strong>' + escapeHtml( title ) + '</strong>' +
+					( meta.description ? '<span class="sd-muted sd-row-desc">' + escapeHtml( meta.description ) + '</span>' : '' ) +
+					'</span>' +
+					'<button type="button" class="sd-icon-button" aria-label="' +
+						escapeHtml( ( on ? S.removeLabel : S.add ) + ' ' + title ) + '">' +
+						( on ? '−' : '+' ) +
+					'</button>' +
+				'</div>'
+			);
+		} ).join( '' );
+
+		// Add all commits every member still outside the draft.
+		var remaining = ( pack.members || [] ).filter( function ( id ) {
+			return enabled.indexOf( id ) === -1;
+		} ).length;
+
+		return (
+			( pack.description ? '<p class="sd-muted sd-pack-desc">' + escapeHtml( pack.description ) + '</p>' : '' ) +
+			rows +
+			( remaining > 0
+				? '<button type="button" class="sd-pack-addall" data-pack="' + escapeHtml( packId ) + '">' +
+					escapeHtml( S.addAll || 'Add all' ) + ' (' + remaining + ')</button>'
+				: '' )
+		);
+	}
+
+	function packPanelBody( mount, cubbyId ) {
+		var packId = cubbyId.slice( 'pack:'.length );
+		var pack = ( config.packs || {} )[ packId ];
+		if ( ! pack ) {
+			return;
+		}
+
+		var paint = function () {
+			mount.innerHTML = packPanelHtml( packId, pack );
+		};
+		paint();
+		wirePackPanel( mount );
+
+		// Repaint after each draft edit (packPanelToggle → renderPackPanels).
+		mount.packRepaint = function () {
+			paint();
+		};
+		registerPackRepaint( mount );
+	}
+
 	/**
 	 * Icon class for a cubby card. Anything starting with "dashicons-"
 	 * rides the dashicons font as before; anything else is treated as a
@@ -1557,7 +1728,7 @@
 				)
 			),
 			h( 'div', { className: 'sd-body' }, body ),
-			h( 'footer', { className: 'sd-footer' }, '🤫' )
+			h( 'footer', { className: 'sd-footer sd-wink' }, '🤫' )
 		);
 	}
 
@@ -1644,10 +1815,94 @@
 		var className = 'sd-drawer sd-drawer--' + position + ' is-open';
 
 		function toggleCubby( id, on ) {
+			// Adding is idempotent: "Add all" sweeps every member, and
+			// re-adding one that's already enabled must not duplicate it.
 			draft.enabled_cubbies = on
-				? draft.enabled_cubbies.concat( [ id ] )
+				? ( -1 === draft.enabled_cubbies.indexOf( id )
+					? draft.enabled_cubbies.concat( [ id ] )
+					: draft.enabled_cubbies )
 				: draft.enabled_cubbies.filter( function ( x ) { return x !== id; } );
 			render();
+			renderPackPanels(); // Keep open pack panels in sync with the draft.
+		}
+		// Pack panels write rows through this same toggle function.
+		packPanelToggle = toggleCubby;
+
+		/** Canonical form of a list so compares ignore order. */
+		function canonList( list ) {
+			return ( list || [] ).slice().sort().join( '\n' );
+		}
+
+		/** True when the draft differs from the settings this page loaded with. */
+		function isDirty() {
+			return (
+				draft.trigger_word !== config.trigger ||
+				draft.position !== config.position ||
+				parseInt( draft.width, 10 ) !== parseInt( config.width, 10 ) ||
+				canonList( draft.roles ) !== canonList( config.roles ) ||
+				canonList( draft.enabled_cubbies ) !==
+					canonList( ( config.cubbies || [] ).map( function ( c ) { return c.id; } ) )
+			);
+		}
+
+		/** Library top level: pack cards, then any ungrouped cubbies. */
+		function libraryTop() {
+			var packs = config.packs || {};
+			var packIds = Object.keys( packs );
+
+			var cards = packIds.map( function ( pid ) {
+				var pack = packs[ pid ];
+				var added = pack.members.filter( function ( id ) {
+					return draft.enabled_cubbies.indexOf( id ) !== -1;
+				} ).length;
+				// "%1$d of %2$d added" — fill added first, then pack size.
+				var label = ( S.ofD || '%1$d of %2$d added' )
+					.replace( '%1$d', String( added ) )
+					.replace( '%2$d', String( pack.members.length ) );
+
+				return h( 'button', {
+					key: pid,
+					type: 'button',
+					className: 'sd-card sd-pack-card',
+					onClick: function () {
+						openPackPanel( pid );
+					}
+				},
+					h( 'span', { className: iconClass( pack.icon ), 'aria-hidden': 'true' }, iconGlyph( pack.icon ) ),
+					h( 'span', { className: 'sd-card-title' }, pack.title ),
+					label ? h( 'span', { className: 'sd-muted sd-pack-count' }, label ) : null
+				);
+			} );
+
+			// Ungrouped cubbies: today's flat rows, alongside the packs.
+			var flat = Object.keys( config.catalog ).filter( function ( id ) {
+				return draft.enabled_cubbies.indexOf( id ) === -1
+					&& ! ( ( config.catalog[ id ].pack || '' ) && packs[ config.catalog[ id ].pack ] );
+			} ).map( function ( id ) {
+				return cubbyRow( id );
+			} );
+
+			return h( 'div', null,
+				cards.length ? h( 'div', { className: 'sd-cubby-grid' }, cards ) : null,
+				flat.length ? flat : null
+			);
+		}
+
+		/** One addable cubby row (title, description, + button). */
+		function cubbyRow( id ) {
+			var meta = config.catalog[ id ] || {};
+			return h( 'div', { key: id, className: 'sd-row' },
+				h( 'span', null,
+					h( 'strong', null, meta.title || id ),
+					h( 'span', { className: 'sd-muted sd-row-desc' }, meta.description || '' )
+				),
+				h( 'button', {
+					className: 'sd-icon-button',
+					type: 'button',
+					'aria-label': ( S.add || 'Add' ) + ' ' + ( meta.title || id ),
+					onClick: function () { toggleCubby( id, true ); }
+				}, '+' )
+			);
 		}
 
 		function save() {
@@ -1673,6 +1928,8 @@
 				state.saving = false;
 				state.view = 'drawer';
 				state.draft = null;
+				packPanelToggle = null; // Draft gone: pack panels idle.
+				closeAllPanels();
 				render();
 				snackbar( config.strings.saved );
 			} ).catch( function () {
@@ -1701,6 +1958,8 @@
 					'aria-label': S.back,
 					onClick: function () {
 						state.view = 'drawer';
+						packPanelToggle = null; // Same cleanup as a save: no draft, no panels.
+						closeAllPanels();
 						render();
 					}
 				}, '←' ),
@@ -1787,30 +2046,15 @@
 				} ) : h( 'p', { className: 'sd-muted' }, S.emptyDrawer || 'This drawer is empty. Add something from the library.' ) ),
 
 				h( 'h3', null, S.library ),
-				Object.keys( config.catalog ).filter( function ( id ) {
-					return draft.enabled_cubbies.indexOf( id ) === -1;
-				} ).map( function ( id ) {
-					var meta = config.catalog[ id ];
-					return h( 'div', { key: id, className: 'sd-row' },
-						h( 'span', null,
-							h( 'strong', null, meta.title ),
-							h( 'span', { className: 'sd-muted sd-row-desc' }, meta.description || '' )
-						),
-						h( 'button', {
-							className: 'sd-icon-button',
-							type: 'button',
-							'aria-label': ( S.add || 'Add' ) + ' ' + meta.title,
-							onClick: function () { toggleCubby( id, true ); }
-						}, '+' )
-					);
-				} )
+				libraryTop()
 			),
 			h( 'footer', { className: 'sd-footer sd-settings-footer' },
 				h( 'span', { className: 'sd-save-status', role: 'status' } ),
 				h( Button, {
 					variant: 'primary',
 					isBusy: state.saving,
-					disabled: state.saving,
+					disabled: state.saving || ! isDirty(),
+					className: ( isDirty() || state.saving ) ? 'sd-save-dirty' : undefined,
 					onClick: save
 				}, S.save )
 			)

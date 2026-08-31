@@ -33,7 +33,13 @@ Either way, the schema reference — entry fields, lever schema, drop-in
 example — lives in `SECRET-DRAWER-EXTENDING.md` in the plugin root. Read
 it; don't restate it.
 
-1. **Pick the shape before code.** Three exist:
+1. **Pick the shape before code — and its pack.** Three exist:
+
+   Pick (or create) the cubby's **pack** at the same time — the `pack`
+   field groups it in the Cubby Library, and the pack's title/description
+   is the thematic surface for the whole set. Packs are presentation
+   metadata only; reorganizing them later never touches saved drawers
+   (`SECRET-DRAWER-EXTENDING.md` › "Packs (optional grouping)").
    - *Server-rendered* (notifications, vitals; the markup of passphrase and
      timer): class in `includes/cubbies/class-cubby-{id}.php`, a `render()`
      case + catalog entry in `class-cubby-registry.php`, a `require_once`

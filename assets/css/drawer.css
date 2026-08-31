@@ -410,6 +410,29 @@
 	color: #757575;
 }
 
+/* Unsaved-changes cue: the Save button is grey while clean (nothing to
+   save) and WordPress blue (#3858e9) as soon as the draft differs from
+   the loaded settings. !important beats wp-components' palette, which
+   keeps the accent background even on disabled primaries. */
+.sd-settings-footer .components-button.is-primary:disabled,
+.sd-settings-footer .components-button.is-primary[aria-disabled='true'] {
+	background: #f0f0f1 !important;
+	border-color: #f0f0f1 !important;
+	color: #a7aaad !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty {
+	background: #3858e9 !important;
+	border-color: #3858e9 !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty:hover:not(:disabled) {
+	background: #2145e6 !important;
+	border-color: #2145e6 !important;
+}
+.sd-settings-footer .components-button.is-primary.sd-save-dirty:focus:not(:disabled) {
+	box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-components-color-background, #fff),
+		0 0 0 calc(var(--wp-admin-border-width-focus, 1.5px) + var(--wp-admin-border-width-focus, 1.5px)) #3858e9 !important;
+}
+
 .sd-save-status.sd-error {
 	color: #b32d2e;
 }
@@ -637,13 +660,17 @@
 	font-size: 11px;
 }
 
-/* Footer wink */
 .sd-footer {
 	flex: 0 0 auto;
 	text-align: center;
 	padding: 6px 0 8px;
 	border-top: 1px solid var(--sd-border);
 	font-size: 12px;
+}
+
+/* Footer wink (the launcher's lone 🤫): dimmed. The dimming lives here,
+   not on .sd-footer, so interactive footers (settings) are full-strength. */
+.sd-wink {
 	opacity: 0.6;
 	user-select: none;
 }
@@ -1226,4 +1253,85 @@
 @keyframes sd-timer-pulse {
 	0%, 100% { transform: scale(1); }
 	50% { transform: scale(1.06); }
+}
+
+/* ------------------------------------------------------------------ *\
+   Cubby packs — library grouping (presentation only, never stored).
+\* ------------------------------------------------------------------ */
+.sd-pack-card {
+	justify-content: flex-start;
+	text-align: left;
+	gap: 4px;
+}
+.sd-pack-card .sd-card-icon {
+	font-size: 26px; /* glyph packs read a touch larger than cubby cards */
+}
+.sd-pack-card .sd-card-title {
+	text-align: left;
+}
+.sd-pack-count {
+	font-size: 11px;
+}
+.sd-pack-back {
+	margin-bottom: 4px;
+}
+.sd-pack-desc {
+	margin: 4px 0 10px;
+}
+.sd-pack-addall {
+	appearance: none;
+	background: var(--sd-accent, #3858e9);
+	border: 1px solid var(--sd-accent, #3858e9);
+	border-radius: 6px;
+	color: #fff;
+	cursor: pointer;
+	font: inherit;
+	margin-top: 10px;
+	padding: 6px 14px;
+}
+.sd-pack-addall:focus-visible {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.sd-pack-addall:active {
+		transform: translateY(1px);
+	}
+}
+
+/* Library cubby: server-rendered pack menu. */
+.sd-library-packs {
+	margin-top: 4px;
+}
+.sd-pack {
+	border: 1px solid var(--sd-border, #dcdcde);
+	border-radius: 8px;
+	margin-bottom: 8px;
+}
+.sd-pack-sum {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	padding: 10px 12px;
+}
+.sd-pack-sum:focus-visible {
+	outline: 2px solid var(--sd-accent, #3858e9);
+	outline-offset: -2px;
+}
+.sd-pack[open] .sd-pack-sum {
+	border-bottom: 1px solid var(--sd-border, #dcdcde);
+}
+.sd-pack-icon {
+	font-size: 22px;
+}
+.sd-pack-title {
+	font-weight: 600;
+}
+.sd-pack .sd-pack-addall {
+	margin: 8px 12px 10px;
+}
+.sd-lib-toggle {
+	width: auto; /* label buttons ("Add"/"Remove"), not icon-sized */
+	padding: 4px 12px;
 }

@@ -84,6 +84,45 @@ is provably never sent to the server (no REST call on generate/copy).
 
 ---
 
+## M7 — Cubby packs (planned next)
+
+Packs group cubbies in the Cubby Library: top level shows pack cards,
+clicking one enters its detail list, and "Add all N" bulk-enables members.
+**Packs are presentation metadata only** — `enabled_cubbies` stays a flat
+cubbid list, so reorganizing packs never touches anyone's saved drawer.
+Derived fresh from the registry each request; nothing pack-level is ever
+persisted, and that rule keeps reorgs free forever.
+
+- Registry: entry field `pack` (id, `^[a-z0-9_-]+$`, default `''`); new
+  `packs()` catalog from a `secret_drawer_packs` filter (`id → {title,
+  icon, description, order}`), humanized-id fallback when cubbies reference
+  an unlisted pack. Built-ins: **Essentials** (Notes, Quick Links,
+  Notifications, Levers, Socrates — Socrates stays: originating joke),
+  **Livin' Large** (Dice, Site Vitals, Passphrase, Focus timer — Sims
+  throwback; "pack" pun pays it off). Ungrouped cubbies stay flat library
+  rows (third-party default).
+- Localization: `catalog[id]` gains `pack`; new `config.packs`; strings
+  "Add all", "Back to packs", "%d of %d added".
+- UI: library top level = pack cards (icon/title/description/count chip);
+  pack detail sub-view in Settings via `state.libraryPack` (back arrow);
+  "Add all N" is idempotent, disabled at completion. Launcher and the
+  "In your drawer" list stay pack-blind.
+- CSS: pack cards reuse the launcher-card pattern; detail rows reuse
+  `sd-row`.
+- Docs (same commit): EXTENDING (`pack` field + `secret_drawer_packs` +
+  fallback note), create-cubby skill step 1 (pick-or-create the pack — the
+  thematic surface), AGENTS.md registry blurb, readme.txt bullet, POT.
+- Checks: php -l, node --check exit code, smoke-drawer.js (harness config
+  gains `packs`), CSS brace count. Then Nik tugs the library flow.
+
+**Design change (2026-08-31, Nik's call):** the Library never appears in the
+main drawer, and the whole-sub-view detail menu is scrapped. As built: the
+Cubby Library lives in Settings; pack cards open pop-out panels,
+client-rendered from `config.packs` (synthetic `pack:{id}` panel id, no
+REST); rows edit the settings draft, Save commits, panels close on Save and
+Back. `state.libraryPack`, the back-arrow sub-view, and the library cubby
+itself never shipped — that v1 attempt is in git history only.
+
 ## Fun backlog (the silly part, preserved for later)
 
 - Alternate triggers: Konami code, double-click the footer credit,
